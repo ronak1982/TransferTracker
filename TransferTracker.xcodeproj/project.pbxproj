@@ -6,13 +6,54 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		446713342F0EFD1B00E74A3F /* TransferTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713322F0EFD1B00E74A3F /* TransferTrackerApp.swift */; };
+		446713372F0EFD3200E74A3F /* CloudKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713352F0EFD3200E74A3F /* CloudKitManager.swift */; };
+		4467133A2F0EFD6F00E74A3F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713382F0EFD6F00E74A3F /* Models.swift */; };
+		446713492F0EFD7900E74A3F /* UserManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713452F0EFD7900E74A3F /* UserManagerView.swift */; };
+		4467134A2F0EFD7900E74A3F /* ExportOptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4467133D2F0EFD7900E74A3F /* ExportOptionsView.swift */; };
+		4467134B2F0EFD7900E74A3F /* JoinListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713412F0EFD7900E74A3F /* JoinListView.swift */; };
+		4467134C2F0EFD7900E74A3F /* NewListFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713422F0EFD7900E74A3F /* NewListFormView.swift */; };
+		4467134D2F0EFD7900E74A3F /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4467133B2F0EFD7900E74A3F /* DashboardView.swift */; };
+		4467134E2F0EFD7900E74A3F /* ProductFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4467133F2F0EFD7900E74A3F /* ProductFormView.swift */; };
+		4467134F2F0EFD7900E74A3F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713472F0EFD7900E74A3F /* ContentView.swift */; };
+		446713502F0EFD7900E74A3F /* TransferListDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713432F0EFD7900E74A3F /* TransferListDetailView.swift */; };
+		446713522F0EFDB000E74A3F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 446713512F0EFDB000E74A3F /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		446713232F0EFC8C00E74A3F /* TransferTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TransferTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		446713322F0EFD1B00E74A3F /* TransferTrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferTrackerApp.swift; sourceTree = "<group>"; };
+		446713352F0EFD3200E74A3F /* CloudKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitManager.swift; sourceTree = "<group>"; };
+		446713382F0EFD6F00E74A3F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		4467133B2F0EFD7900E74A3F /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		4467133D2F0EFD7900E74A3F /* ExportOptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportOptionsView.swift; sourceTree = "<group>"; };
+		4467133F2F0EFD7900E74A3F /* ProductFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductFormView.swift; sourceTree = "<group>"; };
+		446713412F0EFD7900E74A3F /* JoinListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoinListView.swift; sourceTree = "<group>"; };
+		446713422F0EFD7900E74A3F /* NewListFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewListFormView.swift; sourceTree = "<group>"; };
+		446713432F0EFD7900E74A3F /* TransferListDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferListDetailView.swift; sourceTree = "<group>"; };
+		446713452F0EFD7900E74A3F /* UserManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserManagerView.swift; sourceTree = "<group>"; };
+		446713472F0EFD7900E74A3F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		446713512F0EFDB000E74A3F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		446713562F0EFE0D00E74A3F /* TransferTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TransferTracker.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		446713592F0F054800E74A3F /* Exceptions for "TransferTracker" folder in "TransferTracker" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 446713222F0EFC8C00E74A3F /* TransferTracker */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		446713252F0EFC8C00E74A3F /* TransferTracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				446713592F0F054800E74A3F /* Exceptions for "TransferTracker" folder in "TransferTracker" target */,
+			);
 			path = TransferTracker;
 			sourceTree = "<group>";
 		};
@@ -34,6 +75,12 @@
 			children = (
 				446713252F0EFC8C00E74A3F /* TransferTracker */,
 				446713242F0EFC8C00E74A3F /* Products */,
+				446713332F0EFD1B00E74A3F /* App */,
+				446713362F0EFD3200E74A3F /* Managers */,
+				446713392F0EFD6F00E74A3F /* Models */,
+				446713482F0EFD7900E74A3F /* Views */,
+				446713512F0EFDB000E74A3F /* Assets.xcassets */,
+				446713562F0EFE0D00E74A3F /* TransferTracker.entitlements */,
 			);
 			sourceTree = "<group>";
 		};
@@ -43,6 +90,85 @@
 				446713232F0EFC8C00E74A3F /* TransferTracker.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		446713332F0EFD1B00E74A3F /* App */ = {
+			isa = PBXGroup;
+			children = (
+				446713322F0EFD1B00E74A3F /* TransferTrackerApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		446713362F0EFD3200E74A3F /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				446713352F0EFD3200E74A3F /* CloudKitManager.swift */,
+			);
+			path = Managers;
+			sourceTree = "<group>";
+		};
+		446713392F0EFD6F00E74A3F /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				446713382F0EFD6F00E74A3F /* Models.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		4467133C2F0EFD7900E74A3F /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				4467133B2F0EFD7900E74A3F /* DashboardView.swift */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		4467133E2F0EFD7900E74A3F /* Export */ = {
+			isa = PBXGroup;
+			children = (
+				4467133D2F0EFD7900E74A3F /* ExportOptionsView.swift */,
+			);
+			path = Export;
+			sourceTree = "<group>";
+		};
+		446713402F0EFD7900E74A3F /* Product */ = {
+			isa = PBXGroup;
+			children = (
+				4467133F2F0EFD7900E74A3F /* ProductFormView.swift */,
+			);
+			path = Product;
+			sourceTree = "<group>";
+		};
+		446713442F0EFD7900E74A3F /* TransferList */ = {
+			isa = PBXGroup;
+			children = (
+				446713412F0EFD7900E74A3F /* JoinListView.swift */,
+				446713422F0EFD7900E74A3F /* NewListFormView.swift */,
+				446713432F0EFD7900E74A3F /* TransferListDetailView.swift */,
+			);
+			path = TransferList;
+			sourceTree = "<group>";
+		};
+		446713462F0EFD7900E74A3F /* User */ = {
+			isa = PBXGroup;
+			children = (
+				446713452F0EFD7900E74A3F /* UserManagerView.swift */,
+			);
+			path = User;
+			sourceTree = "<group>";
+		};
+		446713482F0EFD7900E74A3F /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				4467133C2F0EFD7900E74A3F /* Dashboard */,
+				4467133E2F0EFD7900E74A3F /* Export */,
+				446713402F0EFD7900E74A3F /* Product */,
+				446713442F0EFD7900E74A3F /* TransferList */,
+				446713462F0EFD7900E74A3F /* User */,
+				446713472F0EFD7900E74A3F /* ContentView.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -109,6 +235,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				446713522F0EFDB000E74A3F /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +246,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4467133A2F0EFD6F00E74A3F /* Models.swift in Sources */,
+				446713372F0EFD3200E74A3F /* CloudKitManager.swift in Sources */,
+				446713492F0EFD7900E74A3F /* UserManagerView.swift in Sources */,
+				4467134A2F0EFD7900E74A3F /* ExportOptionsView.swift in Sources */,
+				4467134B2F0EFD7900E74A3F /* JoinListView.swift in Sources */,
+				4467134C2F0EFD7900E74A3F /* NewListFormView.swift in Sources */,
+				4467134D2F0EFD7900E74A3F /* DashboardView.swift in Sources */,
+				4467134E2F0EFD7900E74A3F /* ProductFormView.swift in Sources */,
+				4467134F2F0EFD7900E74A3F /* ContentView.swift in Sources */,
+				446713502F0EFD7900E74A3F /* TransferListDetailView.swift in Sources */,
+				446713342F0EFD1B00E74A3F /* TransferTrackerApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -251,16 +389,20 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TransferTracker/TransferTracker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3EY93QVKNV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TransferTracker/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Product Transfer Tracker";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -283,16 +425,20 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TransferTracker/TransferTracker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3EY93QVKNV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TransferTracker/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Product Transfer Tracker";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
