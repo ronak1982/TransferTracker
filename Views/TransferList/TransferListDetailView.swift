@@ -37,7 +37,6 @@ struct TransferListDetailView: View {
     var userBreakdown: [(user: String, total: Double)] {
         var breakdown: [String: Double] = [:]
         
-        // Simple totals - just show what each user SENT
         for product in filteredProducts {
             breakdown[product.fromUser, default: 0] += product.totalCost
         }
@@ -98,7 +97,6 @@ struct TransferListDetailView: View {
                         }
                         .pickerStyle(.segmented)
                         
-                        // Date Navigation
                         if timeFilter != .all {
                             HStack {
                                 Button(action: {
@@ -161,7 +159,6 @@ struct TransferListDetailView: View {
                     // Action Buttons
                     HStack(spacing: 12) {
                         Button(action: {
-                            print("🔵 Add Transfer button tapped")
                             showingAddProduct = true
                         }) {
                             HStack {
@@ -264,7 +261,8 @@ struct TransferListDetailView: View {
         .refreshable {
             await loadProducts()
         }
-        .onChange(of: refreshTrigger) { _ in
+        // ✅ FIXED: Updated onChange to use new iOS 17+ syntax (no deprecation warning)
+        .onChange(of: refreshTrigger) {
             Task {
                 await loadProducts()
             }
@@ -274,11 +272,8 @@ struct TransferListDetailView: View {
                 transferList: transferList,
                 isPresented: $showingAddProduct,
                 onSave: {
-                    print("🔵 Product saved, waiting for CloudKit...")
-                    // Wait for CloudKit to finish saving
                     Task {
-                        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-                        print("🔵 Triggering refresh...")
+                        try? await Task.sleep(nanoseconds: 500_000_000)
                         refreshTrigger.toggle()
                     }
                 }
@@ -293,11 +288,8 @@ struct TransferListDetailView: View {
                     set: { if !$0 { editingProduct = nil } }
                 ),
                 onSave: {
-                    print("🔵 Product updated, waiting for CloudKit...")
-                    // Wait for CloudKit to finish saving
                     Task {
-                        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-                        print("🔵 Triggering refresh...")
+                        try? await Task.sleep(nanoseconds: 500_000_000)
                         refreshTrigger.toggle()
                     }
                 }
@@ -344,7 +336,6 @@ struct TransferListDetailView: View {
     }
     
     private func loadProducts() async {
-        print("🔍 Loading products for: \(transferList.title)")
         isLoading = true
         do {
             let fetchedProducts = try await cloudKitManager.fetchProducts(for: transferList)
@@ -352,9 +343,7 @@ struct TransferListDetailView: View {
                 products = fetchedProducts
                 isLoading = false
             }
-            print("✅ Loaded \(fetchedProducts.count) products")
         } catch {
-            print("❌ Error loading products: \(error)")
             await MainActor.run {
                 isLoading = false
             }
@@ -451,14 +440,12 @@ struct ProductCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header with product name and actions
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(product.name)
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(Color(hex: "e2e8f0"))
                     
-                    // Transfer direction
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 12))
@@ -502,7 +489,6 @@ struct ProductCard: View {
             Divider()
                 .background(Color.white.opacity(0.1))
             
-            // Product details
             HStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Bottles")
@@ -543,7 +529,6 @@ struct ProductCard: View {
                 }
             }
             
-            // Notes if available
             if !product.notes.isEmpty {
                 Text(product.notes)
                     .font(.system(size: 14))
@@ -551,7 +536,6 @@ struct ProductCard: View {
                     .padding(.top, 4)
             }
             
-            // Metadata
             HStack {
                 Text("Logged by \(product.addedBy)")
                     .font(.system(size: 12))
@@ -585,12 +569,12 @@ struct ProductCard: View {
     }
 }
 
+// ✅ FIXED PREVIEW - Uses new model structure (no authorizedUsers)
 #Preview {
     NavigationStack {
         TransferListDetailView(
             transferList: TransferList(
                 title: "2026 Transfers",
-                authorizedUsers: ["John Smith", "Sarah Johnson"],
                 createdBy: "Admin"
             )
         )

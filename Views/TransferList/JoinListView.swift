@@ -6,9 +6,13 @@ struct JoinListView: View {
     let shareMetadata: CKShare.Metadata
     @Binding var isPresented: Bool
     
-    @State private var userName = ""
     @State private var isJoining = false
     @State private var errorMessage: String?
+    @State private var joinSuccessful = false
+    
+    var listTitle: String {
+        shareMetadata.share[CKShare.SystemFieldKey.title] as? String ?? "Transfer List"
+    }
     
     var body: some View {
         ZStack {
@@ -22,100 +26,109 @@ struct JoinListView: View {
             VStack(spacing: 32) {
                 Spacer()
                 
-                // Icon
-                Image(systemName: "person.badge.plus")
-                    .font(.system(size: 80))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color(hex: "60a5fa"), Color(hex: "a78bfa")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                VStack(spacing: 12) {
-                    Text("Join Transfer List")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(Color(hex: "e2e8f0"))
+                if joinSuccessful {
+                    // Success State
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 80))
+                        .foregroundColor(Color(hex: "10b981"))
                     
-                    if let title = shareMetadata.share[CKShare.SystemFieldKey.title] as? String {
-                        Text(title)
+                    VStack(spacing: 12) {
+                        Text("Joined Successfully!")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(Color(hex: "e2e8f0"))
+                        
+                        Text("You can now view and edit this list")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "94a3b8"))
+                    }
+                    
+                    Button(action: {
+                        isPresented = false
+                    }) {
+                        Text("Done")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "3b82f6"), Color(hex: "8b5cf6")],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(12)
+                            .padding(.horizontal, 32)
+                    }
+                } else {
+                    // Join Request State
+                    Image(systemName: "person.badge.plus")
+                        .font(.system(size: 80))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color(hex: "60a5fa"), Color(hex: "a78bfa")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    
+                    VStack(spacing: 12) {
+                        Text("Join Transfer List")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(Color(hex: "e2e8f0"))
+                        
+                        Text(listTitle)
                             .font(.system(size: 20))
                             .foregroundColor(Color(hex: "60a5fa"))
+                        
+                        Text("Accept this invitation to collaborate")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "94a3b8"))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
                     }
                     
-                    Text("Enter your name to access this list")
-                        .font(.system(size: 16))
-                        .foregroundColor(Color(hex: "94a3b8"))
-                        .multilineTextAlignment(.center)
-                }
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Your Name")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color(hex: "e2e8f0"))
+                    if let error = errorMessage {
+                        Text(error)
+                            .font(.system(size: 14))
+                            .foregroundColor(.red)
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.red.opacity(0.1))
+                            )
+                            .padding(.horizontal, 32)
+                    }
                     
-                    TextField("e.g., John Smith", text: $userName)
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.white.opacity(0.05))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                )
-                        )
-                        .foregroundColor(Color(hex: "e2e8f0"))
-                        .font(.system(size: 18))
-                }
-                .padding(.horizontal, 32)
-                
-                if let error = errorMessage {
-                    Text(error)
-                        .font(.system(size: 14))
-                        .foregroundColor(.red)
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.red.opacity(0.1))
-                        )
-                        .padding(.horizontal, 32)
-                }
-                
-                Button(action: {
-                    Task {
-                        await joinList()
+                    Button(action: {
+                        Task { await acceptShare() }
+                    }) {
+                        if isJoining {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("Accept Invitation")
+                                .font(.system(size: 18, weight: .semibold))
+                        }
                     }
-                }) {
-                    if isJoining {
-                        ProgressView()
-                            .tint(.white)
-                    } else {
-                        Text("Join List")
-                            .font(.system(size: 18, weight: .semibold))
-                    }
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: "3b82f6"), Color(hex: "8b5cf6")],
-                        startPoint: .leading,
-                        endPoint: .trailing
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "3b82f6"), Color(hex: "8b5cf6")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
                     )
-                )
-                .cornerRadius(12)
-                .padding(.horizontal, 32)
-                .disabled(userName.isEmpty || isJoining)
-                .opacity(userName.isEmpty ? 0.5 : 1.0)
-                
-                Button(action: {
-                    isPresented = false
-                }) {
-                    Text("Cancel")
-                        .font(.system(size: 16))
-                        .foregroundColor(Color(hex: "94a3b8"))
+                    .cornerRadius(12)
+                    .padding(.horizontal, 32)
+                    .disabled(isJoining)
+                    
+                    Button(action: { isPresented = false }) {
+                        Text("Cancel")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "94a3b8"))
+                    }
                 }
                 
                 Spacer()
@@ -124,68 +137,53 @@ struct JoinListView: View {
         }
     }
     
-    private func joinList() async {
-        guard !userName.isEmpty else {
-            errorMessage = "Please enter your name"
-            return
-        }
-        
+    private func acceptShare() async {
+        print("📱 Accepting share...")
         isJoining = true
         errorMessage = nil
         
         do {
-            print("🔵 Accepting share...")
-            
-            // Accept the CloudKit share
             let container = CKContainer.default()
-            _ = try await container.accept(shareMetadata)
+            let acceptedShare = try await container.accept(shareMetadata)
             
-            print("✅ Share accepted, fetching lists...")
+            print("✅ Share accepted!")
+            print("   Share URL: \(acceptedShare.url?.absoluteString ?? "none")")
             
-            // Fetch the shared list
-            await cloudKitManager.fetchTransferLists()
+            let sharedDB = container.sharedCloudDatabase
             
-            // Find the list we just joined
-            let shareTitle = shareMetadata.share[CKShare.SystemFieldKey.title] as? String
+            // ✅ FIXED: rootRecordID is not optional, so no need for guard let
+            let rootRecordID = shareMetadata.rootRecordID
             
-            if let sharedList = cloudKitManager.transferLists.first(where: { $0.title == shareTitle }) {
-                print("🔍 Found shared list: \(sharedList.title)")
-                print("🔍 Authorized users: \(sharedList.authorizedUsers)")
-                print("🔍 User entered: \(userName)")
-                
-                // ✅ VALIDATE ACCESS
-                if cloudKitManager.validateUserAccess(userName: userName, for: sharedList) {
-                    print("✅ User is authorized!")
-                    
-                    await MainActor.run {
-                        isPresented = false
-                    }
-                } else {
-                    print("❌ User NOT authorized!")
-                    
-                    await MainActor.run {
-                        errorMessage = """
-                        You are not authorized to access this list.
-                        
-                        Authorized users: \(sharedList.authorizedUsers.joined(separator: ", "))
-                        
-                        Please enter one of these names exactly.
-                        """
-                        isJoining = false
-                    }
-                }
-            } else {
-                print("⚠️ Could not find shared list, allowing access anyway")
-                // Couldn't find list, allow access (CloudKit already accepted)
-                await MainActor.run {
-                    isPresented = false
-                }
-            }
-        } catch {
-            print("❌ Error joining list: \(error)")
+            print("   Fetching root record: \(rootRecordID.recordName)")
+            print("   Zone: \(rootRecordID.zoneID.zoneName), Owner: \(rootRecordID.zoneID.ownerName)")
+            
+            // Fetch the root record directly using its ID
+            let rootRecord = try await sharedDB.record(for: rootRecordID)
+            
+            var sharedList = TransferList.fromCKRecord(rootRecord)
+            sharedList.databaseScope = "shared"
+            print("✅ Found shared list: \(sharedList.title)")
+            
+            // Add to local cache
+            try await cloudKitManager.upsertSharedListLocally(sharedList)
+            
+            print("✅ List added to your dashboard")
             
             await MainActor.run {
-                errorMessage = "Failed to join list: \(error.localizedDescription)"
+                joinSuccessful = true
+                isJoining = false
+            }
+            
+            // Auto-close after 1.5 seconds
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run {
+                isPresented = false
+            }
+            
+        } catch {
+            print("❌ Error accepting share: \(error)")
+            await MainActor.run {
+                errorMessage = "Failed to accept invitation: \(error.localizedDescription)"
                 isJoining = false
             }
         }
@@ -194,5 +192,4 @@ struct JoinListView: View {
 
 #Preview {
     Text("Join List View Preview")
-        .foregroundColor(.white)
 }

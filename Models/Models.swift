@@ -5,30 +5,48 @@ import CloudKit
 struct TransferList: Identifiable, Codable {
     var id: String
     var title: String
-    var authorizedUsers: [String]
     var createdAt: Date
     var createdBy: String
-    var recordName: String?
+    var createdByUserRecordID: String? // Store actual CloudKit user record ID
+    var transferEntities: [String] // Names/entities involved in transfers (people, warehouses, stores, etc.)
     
-    init(title: String, authorizedUsers: [String], createdBy: String) {
+    // CloudKit routing metadata
+    var databaseScope: String? // "private" or "shared"
+    var zoneName: String?
+    var zoneOwnerName: String?
+    
+    init(title: String, createdBy: String, createdByUserRecordID: String? = nil, transferEntities: [String] = []) {
         self.id = UUID().uuidString
         self.title = title
-        self.authorizedUsers = authorizedUsers
         self.createdAt = Date()
         self.createdBy = createdBy
-        self.recordName = id // Use ID as recordName
+        self.createdByUserRecordID = createdByUserRecordID
+        self.transferEntities = transferEntities
     }
     
     static func fromCKRecord(_ record: CKRecord) -> TransferList {
         var list = TransferList(
             title: record["title"] as? String ?? "Untitled",
-            authorizedUsers: record["authorizedUsers"] as? [String] ?? [],
-            createdBy: record["createdBy"] as? String ?? "Unknown"
+            createdBy: record["createdBy"] as? String ?? "Unknown",
+            createdByUserRecordID: record["createdByUserRecordID"] as? String,
+            transferEntities: record["transferEntities"] as? [String] ?? []
         )
+        
         list.id = record.recordID.recordName
-        list.recordName = record.recordID.recordName
         list.createdAt = record["createdAt"] as? Date ?? Date()
+        list.zoneName = record.recordID.zoneID.zoneName
+        list.zoneOwnerName = record.recordID.zoneID.ownerName
+        
         return list
+    }
+    
+    // Check if current user is the owner
+    func isOwner(currentUserRecordID: String?) -> Bool {
+        guard let currentUserRecordID = currentUserRecordID,
+              let createdByID = createdByUserRecordID else {
+            return false
+        }
+        return currentUserRecordID == createdByID
     }
 }
 
@@ -46,16 +64,28 @@ struct Product: Identifiable, Codable {
     var addedAt: Date
     var updatedBy: String?
     var updatedAt: Date?
-    var recordName: String?
     var transferListID: String
     
+    // CloudKit routing metadata
+    var databaseScope: String?
+    var zoneName: String?
+    var zoneOwnerName: String?
+    
     var totalCost: Double {
-        // Simple calculation: bottles at costPerUnit + cases at costPerUnit
-        // No 12x multiplier for cases!
-        return (bottles * costPerUnit) + (cases * costPerUnit)
+        (bottles * costPerUnit) + (cases * costPerUnit)
     }
     
-    init(name: String, bottles: Double, cases: Double, costPerUnit: Double, notes: String, fromUser: String, toUser: String, addedBy: String, transferListID: String) {
+    init(
+        name: String,
+        bottles: Double,
+        cases: Double,
+        costPerUnit: Double,
+        notes: String,
+        fromUser: String,
+        toUser: String,
+        addedBy: String,
+        transferListID: String
+    ) {
         self.id = UUID().uuidString
         self.name = name
         self.bottles = bottles
@@ -66,7 +96,6 @@ struct Product: Identifiable, Codable {
         self.toUser = toUser
         self.addedBy = addedBy
         self.addedAt = Date()
-        self.recordName = id
         self.transferListID = transferListID
     }
     
@@ -82,12 +111,32 @@ struct Product: Identifiable, Codable {
             addedBy: record["addedBy"] as? String ?? "Unknown",
             transferListID: transferListID
         )
+        
         product.id = record.recordID.recordName
-        product.recordName = record.recordID.recordName
         product.addedAt = record["addedAt"] as? Date ?? Date()
         product.updatedBy = record["updatedBy"] as? String
         product.updatedAt = record["updatedAt"] as? Date
+        product.zoneName = record.recordID.zoneID.zoneName
+        product.zoneOwnerName = record.recordID.zoneID.ownerName
+        
         return product
+    }
+}
+
+// MARK: - Share Participant Info
+struct ShareParticipant: Identifiable {
+    let id: String
+    let name: String
+    let role: CKShare.ParticipantRole
+    let permission: CKShare.ParticipantPermission
+    
+    var roleDescription: String {
+        // Simplified: we only care about distinguishing the owner
+        role == .owner ? "Owner" : "Participant"
+    }
+    
+    var canDelete: Bool {
+        role == .owner
     }
 }
 

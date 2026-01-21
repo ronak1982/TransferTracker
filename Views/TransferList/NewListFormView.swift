@@ -5,9 +5,10 @@ struct NewListFormView: View {
     @Binding var isPresented: Bool
     
     @State private var title = ""
-    @State private var authorizedUsersText = ""
     @State private var isCreating = false
     @State private var errorMessage: String?
+    @State private var transferEntities: [String] = []
+    @State private var newEntityName = ""
     
     var body: some View {
         NavigationView {
@@ -21,7 +22,7 @@ struct NewListFormView: View {
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        Text("Create a new transfer list to track products and collaborate with your team.")
+                        Text("Create a new transfer list. Share it with your team to collaborate in real-time.")
                             .font(.system(size: 16))
                             .foregroundColor(Color(hex: "94a3b8"))
                         
@@ -43,18 +44,18 @@ struct NewListFormView: View {
                                 .foregroundColor(Color(hex: "e2e8f0"))
                         }
                         
+                        // Transfer Entities Section
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Authorized Users")
+                            Text("Transfer Names")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(Color(hex: "e2e8f0"))
                             
-                            Text("Enter names separated by commas")
+                            Text("Enter names separated by commas (e.g., Warehouse 1, Store A, John Smith)")
                                 .font(.system(size: 12))
-                                .foregroundColor(Color(hex: "64748b"))
+                                .foregroundColor(Color(hex: "94a3b8"))
                             
-                            TextEditor(text: $authorizedUsersText)
-                                .frame(height: 120)
-                                .padding(8)
+                            TextField("Warehouse 1, Store A, John Smith", text: $newEntityName)
+                                .padding()
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
                                         .fill(Color.white.opacity(0.05))
@@ -64,8 +65,65 @@ struct NewListFormView: View {
                                         )
                                 )
                                 .foregroundColor(Color(hex: "e2e8f0"))
-                                .scrollContentBackground(.hidden)
+                                .onChange(of: newEntityName) {
+                                    // Parse comma-separated values in real-time
+                                    let names = newEntityName
+                                        .split(separator: ",")
+                                        .map { $0.trimmingCharacters(in: .whitespaces) }
+                                        .filter { !$0.isEmpty }
+                                    transferEntities = names
+                                }
+                            
+                            if !transferEntities.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Preview:")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(Color(hex: "94a3b8"))
+                                    
+                                    ForEach(transferEntities, id: \.self) { name in
+                                        HStack {
+                                            Image(systemName: "tag.fill")
+                                                .foregroundColor(Color(hex: "60a5fa"))
+                                                .font(.system(size: 12))
+                                            
+                                            Text(name)
+                                                .font(.system(size: 13))
+                                                .foregroundColor(Color(hex: "e2e8f0"))
+                                        }
+                                        .padding(.vertical, 4)
+                                        .padding(.horizontal, 8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(Color.white.opacity(0.05))
+                                        )
+                                    }
+                                }
+                                .padding(.top, 4)
+                            }
                         }
+                        
+                        // Info box
+                        HStack(spacing: 12) {
+                            Image(systemName: "info.circle.fill")
+                                .foregroundColor(Color(hex: "60a5fa"))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Collaborate with your team")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(Color(hex: "e2e8f0"))
+                                Text("Share this list so others can view and edit transfers. Only you can delete the list.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color(hex: "94a3b8"))
+                            }
+                        }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(hex: "3b82f6").opacity(0.1))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color(hex: "3b82f6").opacity(0.3), lineWidth: 1)
+                                )
+                        )
                         
                         if let error = errorMessage {
                             Text(error)
@@ -130,10 +188,6 @@ struct NewListFormView: View {
     }
     
     private func createList() async {
-        print("🔵 CREATE LIST BUTTON TAPPED")
-        print("🔵 Title: '\(title)'")
-        print("🔵 Users text: '\(authorizedUsersText)'")
-        
         guard !title.isEmpty else {
             errorMessage = "Please enter a title"
             return
@@ -142,37 +196,17 @@ struct NewListFormView: View {
         isCreating = true
         errorMessage = nil
         
-        let users = authorizedUsersText
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        
-        print("🔵 Parsed users: \(users)")
-        print("🔵 Calling CloudKit createTransferList...")
-        
         do {
-            let newList = try await cloudKitManager.createTransferList(
-                title: title,
-                authorizedUsers: users
-            )
+            let newList = try await cloudKitManager.createTransferList(title: title, transferEntities: transferEntities)
             
-            print("✅ LIST CREATED SUCCESSFULLY!")
-            print("✅ List ID: \(newList.id)")
-            print("✅ List recordName: \(newList.recordName ?? "nil")")
-            print("✅ Current lists in manager: \(cloudKitManager.transferLists.count)")
+            print("âœ… List created: \(newList.id)")
             
-            // Wait a moment for UI to update
             try? await Task.sleep(nanoseconds: 500_000_000)
             
             await MainActor.run {
-                print("✅ Closing form...")
                 isPresented = false
             }
         } catch {
-            print("❌ ERROR CREATING LIST!")
-            print("❌ Error: \(error)")
-            print("❌ Error details: \(error.localizedDescription)")
-            
             await MainActor.run {
                 errorMessage = "Failed to create list: \(error.localizedDescription)"
                 isCreating = false

@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		445175C92F201BBA002C1F12 /* CloudKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445175C82F201BB5002C1F12 /* CloudKitManager.swift */; };
 		446713342F0EFD1B00E74A3F /* TransferTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713322F0EFD1B00E74A3F /* TransferTrackerApp.swift */; };
-		446713372F0EFD3200E74A3F /* CloudKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713352F0EFD3200E74A3F /* CloudKitManager.swift */; };
 		4467133A2F0EFD6F00E74A3F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713382F0EFD6F00E74A3F /* Models.swift */; };
 		446713492F0EFD7900E74A3F /* UserManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713452F0EFD7900E74A3F /* UserManagerView.swift */; };
 		4467134A2F0EFD7900E74A3F /* ExportOptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4467133D2F0EFD7900E74A3F /* ExportOptionsView.swift */; };
@@ -16,15 +16,15 @@
 		4467134C2F0EFD7900E74A3F /* NewListFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713422F0EFD7900E74A3F /* NewListFormView.swift */; };
 		4467134D2F0EFD7900E74A3F /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4467133B2F0EFD7900E74A3F /* DashboardView.swift */; };
 		4467134E2F0EFD7900E74A3F /* ProductFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4467133F2F0EFD7900E74A3F /* ProductFormView.swift */; };
-		4467134F2F0EFD7900E74A3F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713472F0EFD7900E74A3F /* ContentView.swift */; };
 		446713502F0EFD7900E74A3F /* TransferListDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713432F0EFD7900E74A3F /* TransferListDetailView.swift */; };
 		446713522F0EFDB000E74A3F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 446713512F0EFDB000E74A3F /* Assets.xcassets */; };
+		449D6B672F1ECBB1005FF4A1 /* DebugOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 449D6B662F1ECBAC005FF4A1 /* DebugOverlay.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		445175C82F201BB5002C1F12 /* CloudKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitManager.swift; sourceTree = "<group>"; };
 		446713232F0EFC8C00E74A3F /* TransferTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TransferTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		446713322F0EFD1B00E74A3F /* TransferTrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferTrackerApp.swift; sourceTree = "<group>"; };
-		446713352F0EFD3200E74A3F /* CloudKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitManager.swift; sourceTree = "<group>"; };
 		446713382F0EFD6F00E74A3F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		4467133B2F0EFD7900E74A3F /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		4467133D2F0EFD7900E74A3F /* ExportOptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportOptionsView.swift; sourceTree = "<group>"; };
@@ -33,9 +33,9 @@
 		446713422F0EFD7900E74A3F /* NewListFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewListFormView.swift; sourceTree = "<group>"; };
 		446713432F0EFD7900E74A3F /* TransferListDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferListDetailView.swift; sourceTree = "<group>"; };
 		446713452F0EFD7900E74A3F /* UserManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserManagerView.swift; sourceTree = "<group>"; };
-		446713472F0EFD7900E74A3F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		446713512F0EFDB000E74A3F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		446713562F0EFE0D00E74A3F /* TransferTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TransferTracker.entitlements; sourceTree = "<group>"; };
+		449D6B662F1ECBAC005FF4A1 /* DebugOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -103,7 +103,8 @@
 		446713362F0EFD3200E74A3F /* Managers */ = {
 			isa = PBXGroup;
 			children = (
-				446713352F0EFD3200E74A3F /* CloudKitManager.swift */,
+				449D6B662F1ECBAC005FF4A1 /* DebugOverlay.swift */,
+				445175C82F201BB5002C1F12 /* CloudKitManager.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -166,7 +167,6 @@
 				446713402F0EFD7900E74A3F /* Product */,
 				446713442F0EFD7900E74A3F /* TransferList */,
 				446713462F0EFD7900E74A3F /* User */,
-				446713472F0EFD7900E74A3F /* ContentView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -247,16 +247,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				4467133A2F0EFD6F00E74A3F /* Models.swift in Sources */,
-				446713372F0EFD3200E74A3F /* CloudKitManager.swift in Sources */,
+				445175C92F201BBA002C1F12 /* CloudKitManager.swift in Sources */,
 				446713492F0EFD7900E74A3F /* UserManagerView.swift in Sources */,
 				4467134A2F0EFD7900E74A3F /* ExportOptionsView.swift in Sources */,
 				4467134B2F0EFD7900E74A3F /* JoinListView.swift in Sources */,
 				4467134C2F0EFD7900E74A3F /* NewListFormView.swift in Sources */,
 				4467134D2F0EFD7900E74A3F /* DashboardView.swift in Sources */,
 				4467134E2F0EFD7900E74A3F /* ProductFormView.swift in Sources */,
-				4467134F2F0EFD7900E74A3F /* ContentView.swift in Sources */,
 				446713502F0EFD7900E74A3F /* TransferListDetailView.swift in Sources */,
 				446713342F0EFD1B00E74A3F /* TransferTrackerApp.swift in Sources */,
+				449D6B672F1ECBB1005FF4A1 /* DebugOverlay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -391,7 +391,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = TransferTracker/TransferTracker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = 3EY93QVKNV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -427,7 +427,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = TransferTracker/TransferTracker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = 3EY93QVKNV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;

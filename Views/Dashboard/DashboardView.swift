@@ -5,6 +5,10 @@ struct DashboardView: View {
     @EnvironmentObject var cloudKitManager: CloudKitManager
     @Binding var selectedList: TransferList?
     @State private var showingNewListForm = false
+    @State private var showingTestJoin = false
+    @State private var testShareURL = ""
+    @State private var pendingShareMetadata: CKShare.Metadata?
+    @State private var showingJoinSheet = false
     
     var body: some View {
         ZStack {
@@ -43,6 +47,29 @@ struct DashboardView: View {
                                     .stroke(Color.white.opacity(0.1), lineWidth: 1)
                             )
                     )
+                    
+                    // TEST BUTTON - For debugging universal links
+                    Button(action: {
+                        showingTestJoin = true
+                    }) {
+                        HStack {
+                            Image(systemName: "testtube.2")
+                                .font(.system(size: 16))
+                            Text("Test Join Flow (Debug)")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .foregroundColor(Color(hex: "f59e0b"))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(hex: "f59e0b").opacity(0.2))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color(hex: "f59e0b").opacity(0.3), lineWidth: 1)
+                                )
+                        )
+                    }
                     
                     // New List Button
                     Button(action: {
@@ -94,7 +121,9 @@ struct DashboardView: View {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                             ForEach(cloudKitManager.transferLists) { list in
                                 NavigationLink(destination: TransferListDetailView(transferList: list)) {
-                                    TransferListCard(list: list)
+                                    TransferListCard(list: list, onShareCreated: { url in
+                                        testShareURL = url
+                                    })
                                 }
                             }
                         }
@@ -107,23 +136,230 @@ struct DashboardView: View {
         .sheet(isPresented: $showingNewListForm) {
             NewListFormView(isPresented: $showingNewListForm)
         }
+        .sheet(isPresented: $showingTestJoin) {
+            TestJoinView(
+                isPresented: $showingTestJoin,
+                shareURL: testShareURL,
+                onMetadataFetched: { metadata in
+                    // Close test view and show join sheet on main view
+                    showingTestJoin = false
+                    pendingShareMetadata = metadata
+                    
+                    // Delay slightly to ensure test view is dismissed first
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showingJoinSheet = true
+                    }
+                }
+            )
+        }
+        // Join sheet on main dashboard (not on test view!)
+        .sheet(isPresented: $showingJoinSheet) {
+            // Refresh dashboard when join sheet closes
+            Task {
+                await cloudKitManager.fetchTransferLists()
+            }
+        } content: {
+            if let metadata = pendingShareMetadata {
+                JoinListView(shareMetadata: metadata, isPresented: $showingJoinSheet)
+            }
+        }
         .task {
-            print("🔍 Dashboard loading...")
             await cloudKitManager.fetchTransferLists()
         }
         .refreshable {
-            print("🔄 Manual refresh...")
             await cloudKitManager.fetchTransferLists()
         }
-        .onAppear {
-            print("👀 Dashboard appeared")
-            print("📊 Current lists count: \(cloudKitManager.transferLists.count)")
+    }
+}
+
+// Test Join View - Simplified to just fetch metadata
+struct TestJoinView: View {
+    @Binding var isPresented: Bool
+    let shareURL: String
+    let onMetadataFetched: (CKShare.Metadata) -> Void
+    
+    @State private var manualURL = ""
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                LinearGradient(
+                    colors: [Color(hex: "0f172a"), Color(hex: "1e293b")],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                
+                VStack(spacing: 24) {
+                    Text("Test Join Flow")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(Color(hex: "e2e8f0"))
+                    
+                    Text("Paste your share URL here to test the join flow")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(hex: "94a3b8"))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    if !shareURL.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Last Created Share:")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(hex: "94a3b8"))
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                Text(shareURL)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(Color(hex: "60a5fa"))
+                                    .padding(8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.white.opacity(0.05))
+                                    )
+                            }
+                            
+                            Button(action: {
+                                UIPasteboard.general.string = shareURL
+                                manualURL = shareURL
+                            }) {
+                                HStack {
+                                    Image(systemName: "doc.on.clipboard")
+                                    Text("Copy & Use This URL")
+                                }
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(Color(hex: "60a5fa"))
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color(hex: "60a5fa").opacity(0.2))
+                                )
+                            }
+                        }
+                        .padding()
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Share URL:")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color(hex: "e2e8f0"))
+                        
+                        TextEditor(text: $manualURL)
+                            .frame(height: 100)
+                            .padding(8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.white.opacity(0.05))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                    )
+                            )
+                            .foregroundColor(Color(hex: "e2e8f0"))
+                            .scrollContentBackground(.hidden)
+                    }
+                    .padding(.horizontal)
+                    
+                    if let error = errorMessage {
+                        Text(error)
+                            .font(.system(size: 14))
+                            .foregroundColor(.red)
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.red.opacity(0.1))
+                            )
+                            .padding(.horizontal)
+                    }
+                    
+                    Button(action: {
+                        Task {
+                            await testJoin()
+                        }
+                    }) {
+                        if isLoading {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Text("Test Join Flow")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(hex: "10b981"))
+                    )
+                    .padding(.horizontal)
+                    .disabled(manualURL.isEmpty || isLoading)
+                    .opacity(manualURL.isEmpty ? 0.5 : 1.0)
+                    
+                    Spacer()
+                }
+                .padding(.top, 40)
+            }
+            .navigationTitle("Test Join")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: "0f172a"), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") {
+                        isPresented = false
+                    }
+                    .foregroundColor(Color(hex: "e2e8f0"))
+                }
+            }
+        }
+    }
+    
+    private func testJoin() async {
+        guard let url = URL(string: manualURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            errorMessage = "Invalid URL format"
+            return
+        }
+        
+        guard url.absoluteString.contains("icloud.com") else {
+            errorMessage = "Not a CloudKit share URL"
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        print("TEST: Fetching share metadata for URL: \(url.absoluteString)")
+        
+        CKContainer.default().fetchShareMetadata(with: url) { fetchedMetadata, error in
+            DispatchQueue.main.async {
+                isLoading = false
+                
+                if let error = error {
+                    errorMessage = "Error: \(error.localizedDescription)"
+                    print("TEST: Error fetching metadata: \(error)")
+                    return
+                }
+                
+                if let fetchedMetadata = fetchedMetadata {
+                    print("TEST: Got metadata! Calling parent handler")
+                    // Pass metadata back to parent
+                    onMetadataFetched(fetchedMetadata)
+                } else {
+                    errorMessage = "No metadata returned"
+                    print("TEST: No metadata returned")
+                }
+            }
         }
     }
 }
 
 struct TransferListCard: View {
     let list: TransferList
+    let onShareCreated: (String) -> Void
     @EnvironmentObject var cloudKitManager: CloudKitManager
     @State private var showingShareSheet = false
     @State private var shareURL: URL?
@@ -131,32 +367,59 @@ struct TransferListCard: View {
     @State private var showShareAlert = false
     @State private var shareAlertMessage = ""
     
-    var displayUsers: String {
-        if list.authorizedUsers.count >= 2 {
-            return "\(list.authorizedUsers[0]) • \(list.authorizedUsers[1])"
-        } else if list.authorizedUsers.count == 1 {
-            return list.authorizedUsers[0]
-        } else {
-            return "No users"
-        }
+    var isShared: Bool {
+        list.databaseScope == "shared"
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(list.title)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Color(hex: "e2e8f0"))
-                .lineLimit(2)
+            HStack {
+                Text(list.title)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(Color(hex: "e2e8f0"))
+                    .lineLimit(2)
+                
+                Spacer()
+                
+                if isShared {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: "10b981"), Color(hex: "059669")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 28, height: 28)
+                        
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white)
+                    }
+                }
+            }
             
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
-                    Image(systemName: "person.2.fill")
+                    Image(systemName: "person.fill")
                         .font(.system(size: 14))
-                    Text(displayUsers)
+                    Text("Created by \(list.createdBy)")
                         .font(.system(size: 14))
                         .lineLimit(1)
                 }
                 .foregroundColor(Color(hex: "94a3b8"))
+                
+                if isShared {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(hex: "10b981"))
+                        Text("Shared list")
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(hex: "10b981"))
+                    }
+                }
             }
             
             Spacer()
@@ -227,7 +490,9 @@ struct TransferListCard: View {
                 
                 if let url = share.url {
                     shareURL = url
+                    onShareCreated(url.absoluteString)
                     showingShareSheet = true
+                    print("Share URL: \(url.absoluteString)")
                 } else {
                     shareAlertMessage = "Share created but no URL was generated. Try again."
                     showShareAlert = true
@@ -236,7 +501,7 @@ struct TransferListCard: View {
         } catch {
             await MainActor.run {
                 isSharing = false
-                shareAlertMessage = "Error creating share: \(error.localizedDescription)\n\nMake sure you're signed into iCloud on this device."
+                shareAlertMessage = "Error creating share: \(error.localizedDescription)"
                 showShareAlert = true
             }
             print("❌ Share error: \(error)")
@@ -255,7 +520,7 @@ struct ShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
-// Color extension for hex colors
+// Color extension
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -263,23 +528,16 @@ extension Color {
         Scanner(string: hex).scanHexInt64(&int)
         let a, r, g, b: UInt64
         switch hex.count {
-        case 3: // RGB (12-bit)
+        case 3:
             (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
+        case 6:
             (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
+        case 8:
             (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
         default:
             (a, r, g, b) = (1, 1, 1, 0)
         }
-
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue:  Double(b) / 255,
-            opacity: Double(a) / 255
-        )
+        self.init(.sRGB, red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255, opacity: Double(a) / 255)
     }
 }
 

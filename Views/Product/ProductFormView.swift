@@ -16,13 +16,31 @@ struct ProductFormView: View {
     @State private var toUser = ""
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var participants: [ShareParticipant] = []
+    @State private var isLoadingParticipants = true
+    @State private var customFromUser = ""
+    @State private var customToUser = ""
+    @State private var showingCustomFromUser = false
+    @State private var showingCustomToUser = false
     
     var isEditing: Bool {
         existingProduct != nil
     }
     
     var availableUsers: [String] {
-        transferList.authorizedUsers
+        // ✅ Only show transfer entity names (warehouses, stores, etc.)
+        // NO participant names
+        var users = transferList.transferEntities
+        
+        // Add custom names if entered
+        if !customFromUser.isEmpty && !users.contains(customFromUser) {
+            users.append(customFromUser)
+        }
+        if !customToUser.isEmpty && !users.contains(customToUser) {
+            users.append(customToUser)
+        }
+        
+        return users
     }
     
     var body: some View {
@@ -54,32 +72,82 @@ struct ProductFormView: View {
                                             .foregroundColor(Color(hex: "e2e8f0"))
                                     }
                                     
-                                    Menu {
-                                        ForEach(availableUsers, id: \.self) { user in
-                                            Button(user) {
-                                                fromUser = user
-                                                // Auto-select "To" as the other user
-                                                autoSelectToUser()
-                                            }
-                                        }
-                                    } label: {
+                                    if isLoadingParticipants {
                                         HStack {
-                                            Text(fromUser.isEmpty ? "Select sender" : fromUser)
-                                                .foregroundColor(fromUser.isEmpty ? Color(hex: "64748b") : Color(hex: "e2e8f0"))
-                                            Spacer()
-                                            Image(systemName: "chevron.down")
-                                                .foregroundColor(Color(hex: "64748b"))
-                                                .font(.system(size: 12))
+                                            ProgressView()
+                                                .tint(Color(hex: "60a5fa"))
+                                            Text("Loading...")
+                                                .foregroundColor(Color(hex: "94a3b8"))
                                         }
                                         .padding()
+                                        .frame(maxWidth: .infinity)
                                         .background(
                                             RoundedRectangle(cornerRadius: 8)
                                                 .fill(Color.white.opacity(0.05))
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 8)
-                                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                                )
                                         )
+                                    } else if showingCustomFromUser {
+                                        VStack(spacing: 8) {
+                                            TextField("Enter name", text: $customFromUser)
+                                                .padding()
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .fill(Color.white.opacity(0.05))
+                                                )
+                                                .foregroundColor(Color(hex: "e2e8f0"))
+                                            
+                                            HStack {
+                                                Button("Cancel") {
+                                                    showingCustomFromUser = false
+                                                    customFromUser = ""
+                                                }
+                                                .font(.system(size: 13))
+                                                .foregroundColor(Color(hex: "94a3b8"))
+                                                
+                                                Spacer()
+                                                
+                                                Button("Done") {
+                                                    fromUser = customFromUser
+                                                    showingCustomFromUser = false
+                                                    autoSelectToUser()
+                                                }
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundColor(Color(hex: "10b981"))
+                                                .disabled(customFromUser.trimmingCharacters(in: .whitespaces).isEmpty)
+                                            }
+                                        }
+                                    } else {
+                                        Menu {
+                                            ForEach(availableUsers, id: \.self) { user in
+                                                Button(user) {
+                                                    fromUser = user
+                                                    autoSelectToUser()
+                                                }
+                                            }
+                                            
+                                            Divider()
+                                            
+                                            Button("Enter Custom Name...") {
+                                                showingCustomFromUser = true
+                                            }
+                                        } label: {
+                                            HStack {
+                                                Text(fromUser.isEmpty ? "Select sender" : fromUser)
+                                                    .foregroundColor(fromUser.isEmpty ? Color(hex: "64748b") : Color(hex: "e2e8f0"))
+                                                Spacer()
+                                                Image(systemName: "chevron.down")
+                                                    .foregroundColor(Color(hex: "64748b"))
+                                                    .font(.system(size: 12))
+                                            }
+                                            .padding()
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(Color.white.opacity(0.05))
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 8)
+                                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                                    )
+                                            )
+                                        }
                                     }
                                 }
                                 
@@ -99,30 +167,80 @@ struct ProductFormView: View {
                                             .foregroundColor(Color(hex: "e2e8f0"))
                                     }
                                     
-                                    Menu {
-                                        ForEach(availableUsers, id: \.self) { user in
-                                            Button(user) {
-                                                toUser = user
-                                            }
-                                        }
-                                    } label: {
+                                    if isLoadingParticipants {
                                         HStack {
-                                            Text(toUser.isEmpty ? "Select recipient" : toUser)
-                                                .foregroundColor(toUser.isEmpty ? Color(hex: "64748b") : Color(hex: "e2e8f0"))
-                                            Spacer()
-                                            Image(systemName: "chevron.down")
-                                                .foregroundColor(Color(hex: "64748b"))
-                                                .font(.system(size: 12))
+                                            ProgressView()
+                                                .tint(Color(hex: "60a5fa"))
+                                            Text("Loading...")
+                                                .foregroundColor(Color(hex: "94a3b8"))
                                         }
                                         .padding()
+                                        .frame(maxWidth: .infinity)
                                         .background(
                                             RoundedRectangle(cornerRadius: 8)
                                                 .fill(Color.white.opacity(0.05))
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 8)
-                                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                                )
                                         )
+                                    } else if showingCustomToUser {
+                                        VStack(spacing: 8) {
+                                            TextField("Enter name", text: $customToUser)
+                                                .padding()
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .fill(Color.white.opacity(0.05))
+                                                )
+                                                .foregroundColor(Color(hex: "e2e8f0"))
+                                            
+                                            HStack {
+                                                Button("Cancel") {
+                                                    showingCustomToUser = false
+                                                    customToUser = ""
+                                                }
+                                                .font(.system(size: 13))
+                                                .foregroundColor(Color(hex: "94a3b8"))
+                                                
+                                                Spacer()
+                                                
+                                                Button("Done") {
+                                                    toUser = customToUser
+                                                    showingCustomToUser = false
+                                                }
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundColor(Color(hex: "10b981"))
+                                                .disabled(customToUser.trimmingCharacters(in: .whitespaces).isEmpty)
+                                            }
+                                        }
+                                    } else {
+                                        Menu {
+                                            ForEach(availableUsers, id: \.self) { user in
+                                                Button(user) {
+                                                    toUser = user
+                                                }
+                                            }
+                                            
+                                            Divider()
+                                            
+                                            Button("Enter Custom Name...") {
+                                                showingCustomToUser = true
+                                            }
+                                        } label: {
+                                            HStack {
+                                                Text(toUser.isEmpty ? "Select recipient" : toUser)
+                                                    .foregroundColor(toUser.isEmpty ? Color(hex: "64748b") : Color(hex: "e2e8f0"))
+                                                Spacer()
+                                                Image(systemName: "chevron.down")
+                                                    .foregroundColor(Color(hex: "64748b"))
+                                                    .font(.system(size: 12))
+                                            }
+                                            .padding()
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(Color.white.opacity(0.05))
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 8)
+                                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                                    )
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -261,7 +379,7 @@ struct ProductFormView: View {
                                     .foregroundColor(Color(hex: "e2e8f0"))
                                 
                                 HStack {
-                                    Text("\(fromUser) → \(toUser)")
+                                    Text("\(fromUser) â†’ \(toUser)")
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(Color(hex: "60a5fa"))
                                 }
@@ -344,6 +462,9 @@ struct ProductFormView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
+        .task {
+            await loadParticipants()
+        }
         .onAppear {
             if let product = existingProduct {
                 name = product.name
@@ -353,21 +474,32 @@ struct ProductFormView: View {
                 notes = product.notes
                 fromUser = product.fromUser
                 toUser = product.toUser
-            } else {
-                // Default to first user as sender if available
-                if !availableUsers.isEmpty {
-                    fromUser = availableUsers[0]
-                    autoSelectToUser()
-                }
             }
         }
     }
     
-    // Auto-select "To" user as the other person
+    private func loadParticipants() async {
+        // ✅ We don't actually need to load participants for the dropdown anymore
+        // But we still load them in case we want to display collaborator info elsewhere
+        do {
+            let fetchedParticipants = try await cloudKitManager.fetchShareParticipants(for: transferList)
+            
+            await MainActor.run {
+                participants = fetchedParticipants
+                isLoadingParticipants = false
+            }
+        } catch {
+            await MainActor.run {
+                // ✅ Silently fail if not shared - that's okay
+                isLoadingParticipants = false
+            }
+        }
+    }
+    
     private func autoSelectToUser() {
-        if availableUsers.count >= 2 {
-            // Find the first user that's not the fromUser
-            if let otherUser = availableUsers.first(where: { $0 != fromUser }) {
+        let users = availableUsers
+        if users.count >= 2 {
+            if let otherUser = users.first(where: { $0 != fromUser }) {
                 toUser = otherUser
             }
         }
@@ -405,7 +537,6 @@ struct ProductFormView: View {
         
         do {
             if let existing = existingProduct {
-                // Update existing product
                 var updatedProduct = existing
                 updatedProduct.name = name
                 updatedProduct.bottles = Double(bottles) ?? 0
@@ -419,7 +550,6 @@ struct ProductFormView: View {
                 
                 try await cloudKitManager.updateProduct(updatedProduct, in: transferList)
             } else {
-                // Create new product
                 let newProduct = Product(
                     name: name,
                     bottles: Double(bottles) ?? 0,
@@ -452,7 +582,6 @@ struct ProductFormView: View {
     ProductFormView(
         transferList: TransferList(
             title: "2026 Transfers",
-            authorizedUsers: ["John Smith", "Sarah Johnson"],
             createdBy: "Admin"
         ),
         isPresented: .constant(true),
