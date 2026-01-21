@@ -4,6 +4,17 @@ import SwiftUI
 import Combine
 
 final class CloudKitManager: ObservableObject {
+
+    enum ManagerError: LocalizedError {
+        case notOwner
+
+        var errorDescription: String? {
+            switch self {
+            case .notOwner:
+                return "Only the list owner can perform this action."
+            }
+        }
+    }
     static let shared = CloudKitManager()
     
     private let container: CKContainer
@@ -17,6 +28,7 @@ final class CloudKitManager: ObservableObject {
     @Published var isLoading = false
     
     private let listsKey = "SavedTransferLists"
+    private let eventsKeyPrefix = "SavedChangeEvents_"
     
     private init() {
         container = CKContainer.default()
@@ -90,6 +102,10 @@ final class CloudKitManager: ObservableObject {
         }
     }
     
+    func canDeleteList(_ list: TransferList) -> Bool {
+        list.isOwner(currentUserRecordID: currentUserRecordID)
+    }
+
     // MARK: - Transfer Lists
     
     func createTransferList(title: String, transferEntities: [String] = []) async throws -> TransferList {
@@ -122,7 +138,7 @@ final class CloudKitManager: ObservableObject {
         do {
             let db = database(forScope: list.databaseScope)
             let recordID = CKRecord.ID(recordName: list.id, zoneID: zoneID(for: list))
-            let record = CKRecord(recordType: "TransferList", recordID: recordID)
+            let record = CKRecord(recordType: "TransferListV2", recordID: recordID)
             
             record["title"] = list.title as CKRecordValue
             record["createdAt"] = list.createdAt as CKRecordValue
@@ -148,14 +164,13 @@ final class CloudKitManager: ObservableObject {
         
         Task(priority: .background) { [weak self] in
             await self?.syncFromCloudKit()
-            await self?.syncFromSharedCloudKit()
         }
     }
     
     private func syncFromCloudKit() async {
         do {
             let query = CKQuery(
-                recordType: "TransferList",
+                recordType: "TransferListV2",
                 predicate: NSPredicate(value: true)
             )
 
@@ -190,59 +205,48 @@ final class CloudKitManager: ObservableObject {
         }
     }
     
-    // ✅ FIXED: Don't query shared database - only refresh lists we already know about
+    // ✅ FIXED: Removed zone iteration, query shared database directly
     private func syncFromSharedCloudKit() async {
-        // Get list of shared lists from local storage
-        let sharedListIDs = await MainActor.run {
-            transferLists.filter { $0.databaseScope == "shared" }.map { $0.id }
-        }
-        
-        guard !sharedListIDs.isEmpty else {
-            print("ℹ️ No shared lists to sync")
-            return
-        }
-        
-        print("🔄 Syncing \(sharedListIDs.count) shared lists...")
-        
-        var updatedLists: [TransferList] = []
-        
-        for listID in sharedListIDs {
-            // Get the list from local storage to know its zone info
-            guard let localList = await MainActor.run(body: {
-                transferLists.first(where: { $0.id == listID })
-            }) else { continue }
+        do {
+            // Query shared database directly (no zone iteration needed)
+            let query = CKQuery(
+                recordType: "TransferListV2",
+                predicate: NSPredicate(value: true)
+            )
+
+            // Don't sort in CloudKit query - sort locally instead
+            let results = try await sharedDatabase.records(matching: query)
             
-            do {
-                let zoneID = CKRecordZone.ID(
-                    zoneName: localList.zoneName ?? "TransferTrackerZone",
-                    ownerName: localList.zoneOwnerName ?? CKCurrentUserDefaultName
-                )
-                let recordID = CKRecord.ID(recordName: listID, zoneID: zoneID)
-                
-                // Fetch this specific record
-                let record = try await sharedDatabase.record(for: recordID)
-                
-                var list = TransferList.fromCKRecord(record)
-                list.databaseScope = "shared"
-                list.zoneName = record.recordID.zoneID.zoneName
-                list.zoneOwnerName = record.recordID.zoneID.ownerName
-                updatedLists.append(list)
-                
-            } catch {
-                print("⚠️ Failed to sync shared list \(listID): \(error.localizedDescription)")
-            }
-        }
-        
-        await MainActor.run {
-            for updated in updatedLists {
-                if let idx = transferLists.firstIndex(where: { $0.id == updated.id }) {
-                    transferLists[idx] = updated
+            var allSharedLists: [TransferList] = []
+            
+            for (_, result) in results.matchResults {
+                if let record = try? result.get() {
+                    var list = TransferList.fromCKRecord(record)
+                    list.databaseScope = "shared"
+                    list.zoneName = record.recordID.zoneID.zoneName
+                    list.zoneOwnerName = record.recordID.zoneID.ownerName
+                    allSharedLists.append(list)
                 }
             }
-            saveToLocalStorage()
+            
+            // Sort all shared lists locally by createdAt (newest first)
+            allSharedLists.sort { $0.createdAt > $1.createdAt }
+            
+            await MainActor.run {
+                for incoming in allSharedLists {
+                    if let idx = transferLists.firstIndex(where: { $0.id == incoming.id }) {
+                        transferLists[idx] = incoming
+                    } else {
+                        transferLists.append(incoming)
+                    }
+                }
+                saveToLocalStorage()
+            }
+            
+            print("✅ Loaded \(allSharedLists.count) shared lists from CloudKit")
+        } catch {
+            print("⚠️ Shared CloudKit sync failed: \(error.localizedDescription)")
         }
-        
-        print("✅ Synced \(updatedLists.count) shared lists from CloudKit")
     }
     
     func fetchSharedTransferList(recordID: CKRecord.ID) async throws -> TransferList {
@@ -280,6 +284,11 @@ final class CloudKitManager: ObservableObject {
     }
     
     func deleteTransferList(_ list: TransferList) async throws {
+        // Owner-only destructive action
+        if !list.isOwner(currentUserRecordID: currentUserRecordID) {
+            throw ManagerError.notOwner
+        }
+
         // Remove from local storage
         await MainActor.run {
             transferLists.removeAll { $0.id == list.id }
@@ -299,8 +308,109 @@ final class CloudKitManager: ObservableObject {
         }
     }
     
+    // MARK: - Activity (Change Log)
+
+    private func logChangeEvent(for list: TransferList,
+                                eventType: String,
+                                summary: String) async {
+        let actorName = currentUserName.isEmpty ? "Unknown" : currentUserName
+        let ev = ChangeEvent(
+            listRecordName: list.id,
+            eventType: eventType,
+            summary: summary,
+            actorName: actorName,
+            actorUserRecordID: currentUserRecordID
+        )
+
+        // Cache locally immediately (optimistic)
+        var local = loadEventsFromLocal(for: list.id)
+        local.insert(ev, at: 0)
+        // keep last 100
+        if local.count > 100 { local = Array(local.prefix(100)) }
+        saveEventsToLocal(local, for: list.id)
+
+        // Save to CloudKit in same DB/zone as the list so all participants see it
+        do {
+            let db = database(forScope: list.databaseScope)
+            let zone = zoneID(for: list)
+
+            let recordID = CKRecord.ID(recordName: ev.id, zoneID: zone)
+            let record = CKRecord(recordType: "ChangeEventV1", recordID: recordID)
+            record["listRecordName"] = ev.listRecordName as CKRecordValue
+            record["eventType"] = ev.eventType as CKRecordValue
+            record["summary"] = ev.summary as CKRecordValue
+            record["actorName"] = ev.actorName as CKRecordValue
+            if let rid = ev.actorUserRecordID {
+                record["actorUserRecordID"] = rid as CKRecordValue
+            }
+            record["createdAt"] = ev.createdAt as CKRecordValue
+
+            _ = try await db.save(record)
+            print("✅ Activity saved to CloudKit: \(summary)")
+        } catch {
+            print("⚠️ Activity save failed: \(error)")
+        }
+    }
+
+    private func syncChangeEventsFromCloudKit(for list: TransferList) async {
+        do {
+            let db = database(forScope: list.databaseScope)
+            let zone = zoneID(for: list)
+
+            // Fetch all ChangeEventV1 records in this zone and filter locally.
+            // This avoids requiring any schema field to be "queryable".
+            let records = try await fetchAllRecords(
+                database: db,
+                recordType: "ChangeEventV1",
+                predicate: NSPredicate(value: true),
+                zoneID: zone
+            )
+
+            var events: [ChangeEvent] = records.compactMap { ChangeEvent.fromCKRecord($0) }
+            events = events.filter { $0.listRecordName == list.id }
+            events.sort { $0.createdAt > $1.createdAt }
+
+            saveEventsToLocal(events, for: list.id)
+            print("✅ Synced \(events.count) activity events for list \(list.title)")
+        } catch {
+            // Keep quiet; CloudKit can be noisy on cold start
+            print("⚠️ Activity sync failed: \(error)")
+        }
+    }
+
     // MARK: - Products
+
     
+    private func eventsKey(for listID: String) -> String {
+        eventsKeyPrefix + listID
+    }
+
+    private func loadEventsFromLocal(for listID: String) -> [ChangeEvent] {
+        let key = eventsKey(for: listID)
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([ChangeEvent].self, from: data) else {
+            return []
+        }
+        return decoded
+    }
+
+    private func saveEventsToLocal(_ events: [ChangeEvent], for listID: String) {
+        let key = eventsKey(for: listID)
+        if let encoded = try? JSONEncoder().encode(events) {
+            UserDefaults.standard.set(encoded, forKey: key)
+        }
+    }
+
+    // Public: Fetch latest activity for a list (pulls from CloudKit and caches locally)
+    func fetchChangeEvents(for list: TransferList) async -> [ChangeEvent] {
+        let cached = loadEventsFromLocal(for: list.id)
+        // Always try a CloudKit refresh in background
+        Task(priority: .background) { [weak self] in
+            await self?.syncChangeEventsFromCloudKit(for: list)
+        }
+        return cached.sorted { $0.createdAt > $1.createdAt }
+    }
+
     private func productsKey(for listID: String) -> String {
         "Products_\(listID)"
     }
@@ -351,7 +461,7 @@ final class CloudKitManager: ObservableObject {
             let zone = zoneID(for: list)
             
             let productRecordID = CKRecord.ID(recordName: product.id, zoneID: zone)
-            let record = CKRecord(recordType: "Product", recordID: productRecordID)
+            let record = CKRecord(recordType: "ProductV2", recordID: productRecordID)
             
             record["name"] = product.name as CKRecordValue
             record["bottles"] = product.bottles as CKRecordValue
@@ -363,9 +473,12 @@ final class CloudKitManager: ObservableObject {
             record["addedBy"] = product.addedBy as CKRecordValue
             record["addedAt"] = product.addedAt as CKRecordValue
             
+            // IMPORTANT (SharedDB writes): a participant can only create records that belong to the share.
+            // Setting both a reference field AND the CKRecord.parent ties this record into the share tree.
             let parentRecordID = CKRecord.ID(recordName: list.id, zoneID: zone)
-            let reference = CKRecord.Reference(recordID: parentRecordID, action: .deleteSelf)
-            record["transferList"] = reference as CKRecordValue
+            let parentRef = CKRecord.Reference(recordID: parentRecordID, action: .none)
+            record["transferList"] = parentRef as CKRecordValue
+            record.parent = parentRef
             
             _ = try await db.save(record)
             print("☁️ Product synced to CloudKit")
@@ -422,34 +535,20 @@ final class CloudKitManager: ObservableObject {
             let parentID = CKRecord.ID(recordName: list.id, zoneID: zone)
             let ref = CKRecord.Reference(recordID: parentID, action: .none)
             let predicate = NSPredicate(format: "transferList == %@", ref)
-            let query = CKQuery(recordType: "Product", predicate: predicate)
+            let query = CKQuery(recordType: "ProductV2", predicate: predicate)
             
             var cloudProducts: [Product] = []
             
-            if list.databaseScope?.lowercased() == "shared" {
-                // SharedDB does not support zone-wide queries; you must query within the shared record zone.
-                let results = try await db.records(matching: query, inZoneWith: zone)
-                
-                for (_, result) in results.matchResults {
-                    if let record = try? result.get() {
-                        var p = Product.fromCKRecord(record, transferListID: list.id)
-                        p.databaseScope = list.databaseScope
-                        p.zoneName = record.recordID.zoneID.zoneName
-                        p.zoneOwnerName = record.recordID.zoneID.ownerName
-                        cloudProducts.append(p)
-                    }
-                }
-            } else {
-                let results = try await db.records(matching: query, inZoneWith: zone)
-                
-                for (_, result) in results.matchResults {
-                    if let record = try? result.get() {
-                        var p = Product.fromCKRecord(record, transferListID: list.id)
-                        p.databaseScope = list.databaseScope
-                        p.zoneName = record.recordID.zoneID.zoneName
-                        p.zoneOwnerName = record.recordID.zoneID.ownerName
-                        cloudProducts.append(p)
-                    }
+            // SharedDB does not allow zone-wide queries. Always scope queries to a known zone.
+            let results = try await db.records(matching: query, inZoneWith: zone)
+            
+            for (_, result) in results.matchResults {
+                if let record = try? result.get() {
+                    var p = Product.fromCKRecord(record, transferListID: list.id)
+                    p.databaseScope = list.databaseScope
+                    p.zoneName = record.recordID.zoneID.zoneName
+                    p.zoneOwnerName = record.recordID.zoneID.ownerName
+                    cloudProducts.append(p)
                 }
             }
             
@@ -490,7 +589,7 @@ final class CloudKitManager: ObservableObject {
         do {
             listRecord = try await privateDatabase.record(for: recordID)
         } catch {
-            listRecord = CKRecord(recordType: "TransferList", recordID: recordID)
+            listRecord = CKRecord(recordType: "TransferListV2", recordID: recordID)
             listRecord["title"] = list.title as CKRecordValue
             listRecord["createdAt"] = list.createdAt as CKRecordValue
             listRecord["createdBy"] = list.createdBy as CKRecordValue
@@ -551,11 +650,9 @@ final class CloudKitManager: ObservableObject {
         
         // Add owner (owner is not optional - always exists on a share)
         let owner = share.owner
-        let ownerName = owner.userIdentity.nameComponents?.formatted() ?? list.createdBy
-        
         participants.append(ShareParticipant(
             id: owner.userIdentity.userRecordID?.recordName ?? "owner",
-            name: ownerName,  // ✅ Use actual name instead of "Owner"
+            name: "Owner",
             role: .owner,
             permission: .readWrite
         ))
@@ -574,5 +671,63 @@ final class CloudKitManager: ObservableObject {
         
         return participants
     }
+
+    // MARK: - CloudKit Query Helpers
+
+    /// Fetches all records for a given type/predicate inside a specific zone, handling pagination.
+    private func fetchAllRecords(
+        database: CKDatabase,
+        recordType: String,
+        predicate: NSPredicate,
+        zoneID: CKRecordZone.ID
+    ) async throws -> [CKRecord] {
+
+        var all: [CKRecord] = []
+        var cursor: CKQueryOperation.Cursor? = nil
+
+        repeat {
+            let operation: CKQueryOperation
+            if let cursor = cursor {
+                operation = CKQueryOperation(cursor: cursor)
+            } else {
+                let query = CKQuery(recordType: recordType, predicate: predicate)
+                operation = CKQueryOperation(query: query)
+                operation.zoneID = zoneID
+            }
+
+            // Keep payload small; add keys later if needed
+            operation.desiredKeys = nil
+            operation.resultsLimit = CKQueryOperation.maximumResults
+
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                operation.recordMatchedBlock = { _, result in
+                    switch result {
+                    case .success(let record):
+                        all.append(record)
+                    case .failure(let error):
+                        // Fail fast
+                        continuation.resume(throwing: error)
+                    }
+                }
+
+                operation.queryResultBlock = { result in
+                    switch result {
+                    case .success(let nextCursor):
+                        cursor = nextCursor
+                        continuation.resume()
+                    case .failure(let error):
+                        continuation.resume(throwing: error)
+                    }
+                }
+
+                database.add(operation)
+            }
+        } while cursor != nil
+
+        return all
+    }
+
+
 }
+
 

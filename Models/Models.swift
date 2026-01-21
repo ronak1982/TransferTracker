@@ -146,3 +146,49 @@ enum TimeFilter: String, CaseIterable {
     case month = "This Month"
     case year = "This Year"
 }
+// MARK: - Change Event (Activity Log)
+
+struct ChangeEvent: Identifiable, Codable {
+    var id: String
+    var listRecordName: String
+    var eventType: String
+    var summary: String
+    var actorName: String
+    var actorUserRecordID: String?
+    var createdAt: Date
+
+    init(listRecordName: String,
+         eventType: String,
+         summary: String,
+         actorName: String,
+         actorUserRecordID: String?) {
+        self.id = UUID().uuidString
+        self.listRecordName = listRecordName
+        self.eventType = eventType
+        self.summary = summary
+        self.actorName = actorName
+        self.actorUserRecordID = actorUserRecordID
+        self.createdAt = Date()
+    }
+
+    static func fromCKRecord(_ record: CKRecord) -> ChangeEvent? {
+        guard let listRecordName = record["listRecordName"] as? String,
+              let eventType = record["eventType"] as? String,
+              let summary = record["summary"] as? String,
+              let actorName = record["actorName"] as? String else {
+            return nil
+        }
+
+        var ev = ChangeEvent(
+            listRecordName: listRecordName,
+            eventType: eventType,
+            summary: summary,
+            actorName: actorName,
+            actorUserRecordID: record["actorUserRecordID"] as? String
+        )
+        ev.id = record.recordID.recordName
+        ev.createdAt = record["createdAt"] as? Date ?? Date()
+        return ev
+    }
+}
+

@@ -581,3 +581,4 @@ struct ProductCard: View {
         .environmentObject(CloudKitManager.shared)
     }
 }
+
