@@ -4,17 +4,6 @@ import SwiftUI
 import Combine
 
 final class CloudKitManager: ObservableObject {
-
-    enum ManagerError: LocalizedError {
-        case notOwner
-
-        var errorDescription: String? {
-            switch self {
-            case .notOwner:
-                return "Only the list owner can perform this action."
-            }
-        }
-    }
     static let shared = CloudKitManager()
     
     private let container: CKContainer
@@ -28,7 +17,6 @@ final class CloudKitManager: ObservableObject {
     @Published var isLoading = false
     
     private let listsKey = "SavedTransferLists"
-    private let eventsKeyPrefix = "SavedChangeEvents_"
     
     private init() {
         container = CKContainer.default()
@@ -83,7 +71,57 @@ final class CloudKitManager: ObservableObject {
     }
     
     // ✅ FIXED: Made public so UserManagerView can call it when leaving a list
-    func saveToLocalStorage() {
+    
+    // MARK: - Local Activity Feed (Phase 5C Dashboard)
+
+    private let changeEventsKeyPrefix = "SavedChangeEventsKey_"
+
+    private func changeEventsKey(for listID: String) -> String {
+        "\(changeEventsKeyPrefix)\(listID)"
+    }
+
+    private func appendChangeEvent(_ event: ChangeEvent) {
+        let key = changeEventsKey(for: event.transferListID)
+        var events = (loadChangeEvents(forListID: event.transferListID) ?? [])
+        events.append(event)
+
+        // Keep newest first and cap to avoid unbounded growth
+        events.sort { $0.createdAt > $1.createdAt }
+        if events.count > 200 { events = Array(events.prefix(200)) }
+
+        do {
+            let data = try JSONEncoder().encode(events)
+            UserDefaults.standard.set(data, forKey: key)
+        } catch {
+            print("⚠️ Failed to save activity events: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadChangeEvents(forListID listID: String) -> [ChangeEvent]? {
+        let key = changeEventsKey(for: listID)
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode([ChangeEvent].self, from: data)
+    }
+
+    func fetchRecentChangeEventsLocal(limit: Int = 20) -> [ChangeEvent] {
+        let all = UserDefaults.standard.dictionaryRepresentation()
+        var merged: [ChangeEvent] = []
+
+        for (key, value) in all {
+            guard key.hasPrefix(changeEventsKeyPrefix) else { continue }
+            guard let data = value as? Data else { continue }
+            if let decoded = try? JSONDecoder().decode([ChangeEvent].self, from: data) {
+                merged.append(contentsOf: decoded)
+            }
+        }
+
+        merged.sort { $0.createdAt > $1.createdAt }
+        if merged.count > limit { merged = Array(merged.prefix(limit)) }
+        return merged
+    }
+
+
+func saveToLocalStorage() {
         if let encoded = try? JSONEncoder().encode(transferLists) {
             UserDefaults.standard.set(encoded, forKey: listsKey)
             print("✅ Saved \(transferLists.count) lists to local storage")
@@ -102,10 +140,6 @@ final class CloudKitManager: ObservableObject {
         }
     }
     
-    func canDeleteList(_ list: TransferList) -> Bool {
-        list.isOwner(currentUserRecordID: currentUserRecordID)
-    }
-
     // MARK: - Transfer Lists
     
     func createTransferList(title: String, transferEntities: [String] = []) async throws -> TransferList {
@@ -122,6 +156,7 @@ final class CloudKitManager: ObservableObject {
         await MainActor.run {
             transferLists.append(list)
             saveToLocalStorage()
+        appendChangeEvent(ChangeEvent(transferListID: list.id, transferListTitle: list.title, entityType: .list, action: .create, summary: "Created list", actorName: currentUserName.isEmpty ? nil : currentUserName))
         }
         
         print("✅ List saved locally")
@@ -158,13 +193,20 @@ final class CloudKitManager: ObservableObject {
     }
     
     func fetchTransferLists() async {
+        // Phase 5C stability choice:
+        // Load from local storage synchronously for UI responsiveness, and do NOT run
+        // background CloudKit queries at launch. Those queries can emit noisy CloudKit
+        // console errors (e.g., 'recordName is not marked queryable') depending on the
+        // container schema and CloudKit server-side query planner.
         await MainActor.run {
             loadFromLocalStorage()
         }
-        
-        Task(priority: .background) { [weak self] in
-            await self?.syncFromCloudKit()
-        }
+    }
+
+    /// Optional manual refresh hook (not called automatically).
+    func refreshFromCloudKit() async {
+        await syncFromCloudKit()
+        await syncFromSharedCloudKit()
     }
     
     private func syncFromCloudKit() async {
@@ -275,6 +317,7 @@ final class CloudKitManager: ObservableObject {
             if let index = transferLists.firstIndex(where: { $0.id == list.id }) {
                 transferLists[index] = list
                 saveToLocalStorage()
+        appendChangeEvent(ChangeEvent(transferListID: list.id, transferListTitle: list.title, entityType: .list, action: .update, summary: "Updated list", actorName: currentUserName.isEmpty ? nil : currentUserName))
             }
         }
         
@@ -284,14 +327,10 @@ final class CloudKitManager: ObservableObject {
     }
     
     func deleteTransferList(_ list: TransferList) async throws {
-        // Owner-only destructive action
-        if !list.isOwner(currentUserRecordID: currentUserRecordID) {
-            throw ManagerError.notOwner
-        }
-
         // Remove from local storage
         await MainActor.run {
             transferLists.removeAll { $0.id == list.id }
+            appendChangeEvent(ChangeEvent(transferListID: list.id, transferListTitle: list.title, entityType: .list, action: .delete, summary: "Deleted list", actorName: currentUserName.isEmpty ? nil : currentUserName))
             saveToLocalStorage()
         }
         
@@ -308,109 +347,8 @@ final class CloudKitManager: ObservableObject {
         }
     }
     
-    // MARK: - Activity (Change Log)
-
-    private func logChangeEvent(for list: TransferList,
-                                eventType: String,
-                                summary: String) async {
-        let actorName = currentUserName.isEmpty ? "Unknown" : currentUserName
-        let ev = ChangeEvent(
-            listRecordName: list.id,
-            eventType: eventType,
-            summary: summary,
-            actorName: actorName,
-            actorUserRecordID: currentUserRecordID
-        )
-
-        // Cache locally immediately (optimistic)
-        var local = loadEventsFromLocal(for: list.id)
-        local.insert(ev, at: 0)
-        // keep last 100
-        if local.count > 100 { local = Array(local.prefix(100)) }
-        saveEventsToLocal(local, for: list.id)
-
-        // Save to CloudKit in same DB/zone as the list so all participants see it
-        do {
-            let db = database(forScope: list.databaseScope)
-            let zone = zoneID(for: list)
-
-            let recordID = CKRecord.ID(recordName: ev.id, zoneID: zone)
-            let record = CKRecord(recordType: "ChangeEventV1", recordID: recordID)
-            record["listRecordName"] = ev.listRecordName as CKRecordValue
-            record["eventType"] = ev.eventType as CKRecordValue
-            record["summary"] = ev.summary as CKRecordValue
-            record["actorName"] = ev.actorName as CKRecordValue
-            if let rid = ev.actorUserRecordID {
-                record["actorUserRecordID"] = rid as CKRecordValue
-            }
-            record["createdAt"] = ev.createdAt as CKRecordValue
-
-            _ = try await db.save(record)
-            print("✅ Activity saved to CloudKit: \(summary)")
-        } catch {
-            print("⚠️ Activity save failed: \(error)")
-        }
-    }
-
-    private func syncChangeEventsFromCloudKit(for list: TransferList) async {
-        do {
-            let db = database(forScope: list.databaseScope)
-            let zone = zoneID(for: list)
-
-            // Fetch all ChangeEventV1 records in this zone and filter locally.
-            // This avoids requiring any schema field to be "queryable".
-            let records = try await fetchAllRecords(
-                database: db,
-                recordType: "ChangeEventV1",
-                predicate: NSPredicate(value: true),
-                zoneID: zone
-            )
-
-            var events: [ChangeEvent] = records.compactMap { ChangeEvent.fromCKRecord($0) }
-            events = events.filter { $0.listRecordName == list.id }
-            events.sort { $0.createdAt > $1.createdAt }
-
-            saveEventsToLocal(events, for: list.id)
-            print("✅ Synced \(events.count) activity events for list \(list.title)")
-        } catch {
-            // Keep quiet; CloudKit can be noisy on cold start
-            print("⚠️ Activity sync failed: \(error)")
-        }
-    }
-
     // MARK: - Products
-
     
-    private func eventsKey(for listID: String) -> String {
-        eventsKeyPrefix + listID
-    }
-
-    private func loadEventsFromLocal(for listID: String) -> [ChangeEvent] {
-        let key = eventsKey(for: listID)
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([ChangeEvent].self, from: data) else {
-            return []
-        }
-        return decoded
-    }
-
-    private func saveEventsToLocal(_ events: [ChangeEvent], for listID: String) {
-        let key = eventsKey(for: listID)
-        if let encoded = try? JSONEncoder().encode(events) {
-            UserDefaults.standard.set(encoded, forKey: key)
-        }
-    }
-
-    // Public: Fetch latest activity for a list (pulls from CloudKit and caches locally)
-    func fetchChangeEvents(for list: TransferList) async -> [ChangeEvent] {
-        let cached = loadEventsFromLocal(for: list.id)
-        // Always try a CloudKit refresh in background
-        Task(priority: .background) { [weak self] in
-            await self?.syncChangeEventsFromCloudKit(for: list)
-        }
-        return cached.sorted { $0.createdAt > $1.createdAt }
-    }
-
     private func productsKey(for listID: String) -> String {
         "Products_\(listID)"
     }
@@ -671,63 +609,7 @@ final class CloudKitManager: ObservableObject {
         
         return participants
     }
-
-    // MARK: - CloudKit Query Helpers
-
-    /// Fetches all records for a given type/predicate inside a specific zone, handling pagination.
-    private func fetchAllRecords(
-        database: CKDatabase,
-        recordType: String,
-        predicate: NSPredicate,
-        zoneID: CKRecordZone.ID
-    ) async throws -> [CKRecord] {
-
-        var all: [CKRecord] = []
-        var cursor: CKQueryOperation.Cursor? = nil
-
-        repeat {
-            let operation: CKQueryOperation
-            if let cursor = cursor {
-                operation = CKQueryOperation(cursor: cursor)
-            } else {
-                let query = CKQuery(recordType: recordType, predicate: predicate)
-                operation = CKQueryOperation(query: query)
-                operation.zoneID = zoneID
-            }
-
-            // Keep payload small; add keys later if needed
-            operation.desiredKeys = nil
-            operation.resultsLimit = CKQueryOperation.maximumResults
-
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                operation.recordMatchedBlock = { _, result in
-                    switch result {
-                    case .success(let record):
-                        all.append(record)
-                    case .failure(let error):
-                        // Fail fast
-                        continuation.resume(throwing: error)
-                    }
-                }
-
-                operation.queryResultBlock = { result in
-                    switch result {
-                    case .success(let nextCursor):
-                        cursor = nextCursor
-                        continuation.resume()
-                    case .failure(let error):
-                        continuation.resume(throwing: error)
-                    }
-                }
-
-                database.add(operation)
-            }
-        } while cursor != nil
-
-        return all
-    }
-
-
 }
+
 
 

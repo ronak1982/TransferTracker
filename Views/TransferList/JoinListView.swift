@@ -144,25 +144,27 @@ struct JoinListView: View {
         
         do {
             let container = CKContainer.default()
-            let acceptedShare = try await container.accept(shareMetadata)
+            _ = try await container.accept(shareMetadata)
             
             print("✅ Share accepted!")
-            print("   Share URL: \(acceptedShare.url?.absoluteString ?? "none")")
             
-            let sharedDB = container.sharedCloudDatabase
-            
-            // ✅ FIXED: rootRecordID is not optional, so no need for guard let
-            let rootRecordID = shareMetadata.rootRecordID
-            
-            print("   Fetching root record: \(rootRecordID.recordName)")
-            print("   Zone: \(rootRecordID.zoneID.zoneName), Owner: \(rootRecordID.zoneID.ownerName)")
-            
-            // Fetch the root record directly using its ID
-            let rootRecord = try await sharedDB.record(for: rootRecordID)
-            
-            var sharedList = TransferList.fromCKRecord(rootRecord)
-            sharedList.databaseScope = "shared"
-            print("✅ Found shared list: \(sharedList.title)")
+            // Resolve the *root* record ID for the shared TransferList record.
+// Never fall back to the CKShare record ID (that record does not contain your list fields).
+let rootID: CKRecord.ID?
+if let rootRecord = shareMetadata.rootRecord {
+    rootID = rootRecord.recordID
+} else {
+    // Deprecated but still valid on many SDKs; use only as a fallback.
+    rootID = shareMetadata.rootRecordID
+}
+
+guard let resolvedRootID = rootID else {
+    throw NSError(domain: "JoinListView", code: 1001, userInfo: [
+        NSLocalizedDescriptionKey: "This share link is missing the root record information."
+    ])
+}
+
+let sharedList = try await cloudKitManager.fetchSharedTransferList(recordID: resolvedRootID)
             
             // Add to local cache
             try await cloudKitManager.upsertSharedListLocally(sharedList)
@@ -193,3 +195,4 @@ struct JoinListView: View {
 #Preview {
     Text("Join List View Preview")
 }
+

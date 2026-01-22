@@ -5,7 +5,7 @@ struct DashboardView: View {
     @EnvironmentObject var cloudKitManager: CloudKitManager
     @Binding var selectedList: TransferList?
     @State private var showingNewListForm = false
-    @State private var showingTestJoin = false
+    @State private var showingJoinFromLink = false
     @State private var testShareURL = ""
     @State private var pendingShareMetadata: CKShare.Metadata?
     @State private var showingJoinSheet = false
@@ -22,6 +22,28 @@ struct DashboardView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+
+            // MARK: - Recent Activity (Phase 5C)
+            NavigationLink(destination: ActivityFeedView().environmentObject(cloudKitManager)) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Recent Activity")
+                            .font(.headline)
+                        Text("See what changed across your lists")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 8)
+
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Transfer Tracker")
@@ -47,30 +69,27 @@ struct DashboardView: View {
                                     .stroke(Color.white.opacity(0.1), lineWidth: 1)
                             )
                     )
-                    
-                    // TEST BUTTON - For debugging universal links
+
+                    // Join Shared List Button
                     Button(action: {
-                        showingTestJoin = true
+                        showingJoinFromLink = true
                     }) {
                         HStack {
-                            Image(systemName: "testtube.2")
-                                .font(.system(size: 16))
-                            Text("Test Join Flow (Debug)")
-                                .font(.system(size: 14, weight: .semibold))
+                            Image(systemName: "link")
+                                .font(.system(size: 18))
+                            Text("Join Shared List")
+                                .font(.system(size: 16, weight: .semibold))
                         }
-                        .foregroundColor(Color(hex: "f59e0b"))
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(hex: "f59e0b").opacity(0.2))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color(hex: "f59e0b").opacity(0.3), lineWidth: 1)
-                                )
+                                .fill(Color(hex: "10b981"))
                         )
+                        .shadow(color: Color(hex: "10b981").opacity(0.25), radius: 10, y: 5)
                     }
-                    
+
                     // New List Button
                     Button(action: {
                         showingNewListForm = true
@@ -136,13 +155,13 @@ struct DashboardView: View {
         .sheet(isPresented: $showingNewListForm) {
             NewListFormView(isPresented: $showingNewListForm)
         }
-        .sheet(isPresented: $showingTestJoin) {
-            TestJoinView(
-                isPresented: $showingTestJoin,
+        .sheet(isPresented: $showingJoinFromLink) {
+            JoinFromLinkView(
+                isPresented: $showingJoinFromLink,
                 shareURL: testShareURL,
                 onMetadataFetched: { metadata in
                     // Close test view and show join sheet on main view
-                    showingTestJoin = false
+                    showingJoinFromLink = false
                     pendingShareMetadata = metadata
                     
                     // Delay slightly to ensure test view is dismissed first
@@ -172,8 +191,8 @@ struct DashboardView: View {
     }
 }
 
-// Test Join View - Simplified to just fetch metadata
-struct TestJoinView: View {
+// Join From Link View - Fetches share metadata from a pasted URL
+struct JoinFromLinkView: View {
     @Binding var isPresented: Bool
     let shareURL: String
     let onMetadataFetched: (CKShare.Metadata) -> Void
@@ -193,11 +212,11 @@ struct TestJoinView: View {
                 .ignoresSafeArea()
                 
                 VStack(spacing: 24) {
-                    Text("Test Join Flow")
+                    Text("Join Shared List")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(Color(hex: "e2e8f0"))
                     
-                    Text("Paste your share URL here to test the join flow")
+                    Text("Paste a shared link to join a transfer list")
                         .font(.system(size: 14))
                         .foregroundColor(Color(hex: "94a3b8"))
                         .multilineTextAlignment(.center)
@@ -276,14 +295,14 @@ struct TestJoinView: View {
                     
                     Button(action: {
                         Task {
-                            await testJoin()
+                            await joinFromLink()
                         }
                     }) {
                         if isLoading {
                             ProgressView()
                                 .tint(.white)
                         } else {
-                            Text("Test Join Flow")
+                            Text("Join Shared List")
                                 .font(.system(size: 16, weight: .semibold))
                         }
                     }
@@ -318,7 +337,7 @@ struct TestJoinView: View {
         }
     }
     
-    private func testJoin() async {
+    private func joinFromLink() async {
         guard let url = URL(string: manualURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
             errorMessage = "Invalid URL format"
             return
@@ -332,7 +351,7 @@ struct TestJoinView: View {
         isLoading = true
         errorMessage = nil
         
-        print("TEST: Fetching share metadata for URL: \(url.absoluteString)")
+        print("JOIN: Fetching share metadata for URL: \(url.absoluteString)")
         
         CKContainer.default().fetchShareMetadata(with: url) { fetchedMetadata, error in
             DispatchQueue.main.async {
@@ -340,17 +359,17 @@ struct TestJoinView: View {
                 
                 if let error = error {
                     errorMessage = "Error: \(error.localizedDescription)"
-                    print("TEST: Error fetching metadata: \(error)")
+                    print("JOIN: Error fetching metadata: \(error)")
                     return
                 }
                 
                 if let fetchedMetadata = fetchedMetadata {
-                    print("TEST: Got metadata! Calling parent handler")
+                    print("JOIN: Got metadata! Calling parent handler")
                     // Pass metadata back to parent
                     onMetadataFetched(fetchedMetadata)
                 } else {
                     errorMessage = "No metadata returned"
-                    print("TEST: No metadata returned")
+                    print("JOIN: No metadata returned")
                 }
             }
         }
@@ -547,3 +566,5 @@ extension Color {
             .environmentObject(CloudKitManager.shared)
     }
 }
+
+

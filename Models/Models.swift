@@ -124,6 +124,47 @@ struct Product: Identifiable, Codable {
 }
 
 // MARK: - Share Participant Info
+
+// MARK: - Change Event (Local Activity Feed)
+struct ChangeEvent: Identifiable, Codable, Hashable {
+    enum EntityType: String, Codable { case list, product }
+    enum Action: String, Codable { case create, update, delete, add }
+
+    var id: String
+    var transferListID: String
+    var transferListTitle: String
+    var entityType: EntityType
+    var action: Action
+    var summary: String
+    var actorName: String?
+    var createdAt: Date
+
+    init(
+        id: String = UUID().uuidString,
+        transferListID: String,
+        transferListTitle: String,
+        entityType: EntityType,
+        action: Action,
+        summary: String,
+        actorName: String? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.transferListID = transferListID
+        self.transferListTitle = transferListTitle
+        self.entityType = entityType
+        self.action = action
+        self.summary = summary
+        self.actorName = actorName
+        self.createdAt = createdAt
+    }
+
+    var actorDisplayName: String {
+        if let actorName, !actorName.isEmpty { return actorName }
+        return "Someone"
+    }
+}
+
 struct ShareParticipant: Identifiable {
     let id: String
     let name: String
@@ -145,50 +186,5 @@ enum TimeFilter: String, CaseIterable {
     case all = "All Time"
     case month = "This Month"
     case year = "This Year"
-}
-// MARK: - Change Event (Activity Log)
-
-struct ChangeEvent: Identifiable, Codable {
-    var id: String
-    var listRecordName: String
-    var eventType: String
-    var summary: String
-    var actorName: String
-    var actorUserRecordID: String?
-    var createdAt: Date
-
-    init(listRecordName: String,
-         eventType: String,
-         summary: String,
-         actorName: String,
-         actorUserRecordID: String?) {
-        self.id = UUID().uuidString
-        self.listRecordName = listRecordName
-        self.eventType = eventType
-        self.summary = summary
-        self.actorName = actorName
-        self.actorUserRecordID = actorUserRecordID
-        self.createdAt = Date()
-    }
-
-    static func fromCKRecord(_ record: CKRecord) -> ChangeEvent? {
-        guard let listRecordName = record["listRecordName"] as? String,
-              let eventType = record["eventType"] as? String,
-              let summary = record["summary"] as? String,
-              let actorName = record["actorName"] as? String else {
-            return nil
-        }
-
-        var ev = ChangeEvent(
-            listRecordName: listRecordName,
-            eventType: eventType,
-            summary: summary,
-            actorName: actorName,
-            actorUserRecordID: record["actorUserRecordID"] as? String
-        )
-        ev.id = record.recordID.recordName
-        ev.createdAt = record["createdAt"] as? Date ?? Date()
-        return ev
-    }
 }
 
