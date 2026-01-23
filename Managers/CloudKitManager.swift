@@ -12,7 +12,16 @@ final class CloudKitManager: ObservableObject {
     private let customZoneID: CKRecordZone.ID
     
     @Published var transferLists: [TransferList] = []
-    @Published var currentUserName: String = ""
+
+    private let userNameKey = "TransferTracker.CurrentUserName"
+
+    /// Local-only display name used for stamping "Created by" and the activity feed.
+    /// This is intentionally NOT a CloudKit identity; it's your in-app name (e.g., Ronak/Chirag).
+    @Published var currentUserName: String = "" {
+        didSet {
+            UserDefaults.standard.set(currentUserName, forKey: userNameKey)
+        }
+    }
     @Published var currentUserRecordID: String?
     @Published var isLoading = false
     
@@ -23,6 +32,9 @@ final class CloudKitManager: ObservableObject {
         privateDatabase = container.privateCloudDatabase
         sharedDatabase = container.sharedCloudDatabase
         customZoneID = CKRecordZone.ID(zoneName: "TransferTrackerZone", ownerName: CKCurrentUserDefaultName)
+
+        // Load local display name if previously set
+        currentUserName = UserDefaults.standard.string(forKey: userNameKey) ?? ""
         
         print("🔧 CloudKitManager initialized")
         
@@ -193,27 +205,26 @@ func saveToLocalStorage() {
     }
     
     func fetchTransferLists() async {
-        // Phase 5C stability choice:
-        // Load from local storage synchronously for UI responsiveness, and do NOT run
-        // background CloudKit queries at launch. Those queries can emit noisy CloudKit
-        // console errors (e.g., 'recordName is not marked queryable') depending on the
-        // container schema and CloudKit server-side query planner.
         await MainActor.run {
             loadFromLocalStorage()
         }
-    }
-
-    /// Optional manual refresh hook (not called automatically).
-    func refreshFromCloudKit() async {
-        await syncFromCloudKit()
-        await syncFromSharedCloudKit()
+        
+        Task(priority: .background) { [weak self] in
+            await self?.syncFromCloudKit()
+            await self?.syncFromSharedCloudKit()
+        }
     }
     
     private func syncFromCloudKit() async {
         do {
+            // NOTE: Using `NSPredicate(value: true)` can sometimes be rewritten server-side
+            // into a predicate involving system fields like `recordName`, which may trigger
+            // "Field 'recordName' is not marked queryable" depending on the container/schema.
+            // Use a stable, queryable field instead.
+            let epoch = Date(timeIntervalSince1970: 0) as NSDate
             let query = CKQuery(
                 recordType: "TransferListV2",
-                predicate: NSPredicate(value: true)
+                predicate: NSPredicate(format: "createdAt > %@", epoch)
             )
 
             // Don't sort in CloudKit query - sort locally instead to avoid "not queryable" errors
@@ -249,46 +260,13 @@ func saveToLocalStorage() {
     
     // ✅ FIXED: Removed zone iteration, query shared database directly
     private func syncFromSharedCloudKit() async {
-        do {
-            // Query shared database directly (no zone iteration needed)
-            let query = CKQuery(
-                recordType: "TransferListV2",
-                predicate: NSPredicate(value: true)
-            )
-
-            // Don't sort in CloudKit query - sort locally instead
-            let results = try await sharedDatabase.records(matching: query)
-            
-            var allSharedLists: [TransferList] = []
-            
-            for (_, result) in results.matchResults {
-                if let record = try? result.get() {
-                    var list = TransferList.fromCKRecord(record)
-                    list.databaseScope = "shared"
-                    list.zoneName = record.recordID.zoneID.zoneName
-                    list.zoneOwnerName = record.recordID.zoneID.ownerName
-                    allSharedLists.append(list)
-                }
-            }
-            
-            // Sort all shared lists locally by createdAt (newest first)
-            allSharedLists.sort { $0.createdAt > $1.createdAt }
-            
-            await MainActor.run {
-                for incoming in allSharedLists {
-                    if let idx = transferLists.firstIndex(where: { $0.id == incoming.id }) {
-                        transferLists[idx] = incoming
-                    } else {
-                        transferLists.append(incoming)
-                    }
-                }
-                saveToLocalStorage()
-            }
-            
-            print("✅ Loaded \(allSharedLists.count) shared lists from CloudKit")
-        } catch {
-            print("⚠️ Shared CloudKit sync failed: \(error.localizedDescription)")
-        }
+        // IMPORTANT:
+        // Shared database does NOT support zone-wide queries.
+        // Because we already upsert shared lists locally when a user joins a share,
+        // we intentionally skip a blanket SharedDB scan here to avoid noisy errors.
+        // If/when we want to enumerate shared zones, we can fetch record zones first
+        // and query each zone explicitly.
+        return
     }
     
     func fetchSharedTransferList(recordID: CKRecord.ID) async throws -> TransferList {

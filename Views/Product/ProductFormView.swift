@@ -16,8 +16,9 @@ struct ProductFormView: View {
     @State private var toUser = ""
     @State private var isSaving = false
     @State private var errorMessage: String?
-    @State private var participants: [ShareParticipant] = []
-    @State private var isLoadingParticipants = true
+    @State private var isLoadingParticipants = false
+    // NOTE: We intentionally do NOT use CloudKit share participants for transfer direction.
+    // Transfer direction should be based on the list's configured transfer entities.
     @State private var customFromUser = ""
     @State private var customToUser = ""
     @State private var showingCustomFromUser = false
@@ -28,18 +29,21 @@ struct ProductFormView: View {
     }
     
     var availableUsers: [String] {
-        // ✅ Only show transfer entity names (warehouses, stores, etc.)
-        // NO participant names
-        var users = transferList.transferEntities
+        // Names/entities configured on the list (e.g., Ronak, Chirag, Store A, Warehouse)
+        var users = Array(Set(
+            transferList.transferEntities
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .filter { $0.lowercased() != "owner" }
+        ))
+        users.sort()
         
-        // Add custom names if entered
         if !customFromUser.isEmpty && !users.contains(customFromUser) {
             users.append(customFromUser)
         }
         if !customToUser.isEmpty && !users.contains(customToUser) {
             users.append(customToUser)
         }
-        
         return users
     }
     
@@ -379,7 +383,7 @@ struct ProductFormView: View {
                                     .foregroundColor(Color(hex: "e2e8f0"))
                                 
                                 HStack {
-                                    Text("\(fromUser) â†’ \(toUser)")
+                                    Text("\(fromUser) \u{2192} \(toUser)")
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(Color(hex: "60a5fa"))
                                 }
@@ -462,9 +466,7 @@ struct ProductFormView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
-        .task {
-            await loadParticipants()
-        }
+        // No CloudKit participant fetch is needed here; transfer direction uses the list's entities.
         .onAppear {
             if let product = existingProduct {
                 name = product.name
@@ -474,24 +476,6 @@ struct ProductFormView: View {
                 notes = product.notes
                 fromUser = product.fromUser
                 toUser = product.toUser
-            }
-        }
-    }
-    
-    private func loadParticipants() async {
-        // ✅ We don't actually need to load participants for the dropdown anymore
-        // But we still load them in case we want to display collaborator info elsewhere
-        do {
-            let fetchedParticipants = try await cloudKitManager.fetchShareParticipants(for: transferList)
-            
-            await MainActor.run {
-                participants = fetchedParticipants
-                isLoadingParticipants = false
-            }
-        } catch {
-            await MainActor.run {
-                // ✅ Silently fail if not shared - that's okay
-                isLoadingParticipants = false
             }
         }
     }
@@ -589,3 +573,4 @@ struct ProductFormView: View {
     )
     .environmentObject(CloudKitManager.shared)
 }
+

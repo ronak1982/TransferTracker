@@ -3,486 +3,351 @@ import CloudKit
 
 struct DashboardView: View {
     @EnvironmentObject var cloudKitManager: CloudKitManager
-    @Binding var selectedList: TransferList?
+
+    @State private var selectedList: TransferList?
     @State private var showingNewListForm = false
-    @State private var showingJoinFromLink = false
-    @State private var testShareURL = ""
-    @State private var pendingShareMetadata: CKShare.Metadata?
     @State private var showingJoinSheet = false
-    
+    @State private var pendingShareMetadata: CKShare.Metadata?
+    @State private var showingManualJoin = false
+
     var body: some View {
-        ZStack {
-            // Background gradient
-            LinearGradient(
-                colors: [Color(hex: "0f172a"), Color(hex: "1e293b")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-
-            // MARK: - Recent Activity (Phase 5C)
-            NavigationLink(destination: ActivityFeedView().environmentObject(cloudKitManager)) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Recent Activity")
-                            .font(.headline)
-                        Text("See what changed across your lists")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .padding()
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 8)
-
-                    // Header
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Transfer Tracker")
-                            .font(.system(size: 36, weight: .bold))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [Color(hex: "60a5fa"), Color(hex: "a78bfa")],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                        
-                        Text("Manage your product transfers with ease")
-                            .font(.system(size: 18))
-                            .foregroundColor(Color(hex: "94a3b8"))
-                    }
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color.white.opacity(0.05))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                            )
-                    )
-
-                    // Join Shared List Button
-                    Button(action: {
-                        showingJoinFromLink = true
-                    }) {
-                        HStack {
-                            Image(systemName: "link")
-                                .font(.system(size: 18))
-                            Text("Join Shared List")
-                                .font(.system(size: 16, weight: .semibold))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(hex: "10b981"))
-                        )
-                        .shadow(color: Color(hex: "10b981").opacity(0.25), radius: 10, y: 5)
-                    }
-
-                    // New List Button
-                    Button(action: {
-                        showingNewListForm = true
-                    }) {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 20))
-                            Text("Create New Transfer List")
-                                .font(.system(size: 16, weight: .semibold))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            LinearGradient(
-                                colors: [Color(hex: "3b82f6"), Color(hex: "8b5cf6")],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .cornerRadius(12)
-                        .shadow(color: Color(hex: "3b82f6").opacity(0.3), radius: 10, y: 5)
-                    }
-                    
-                    // Lists Grid
-                    if cloudKitManager.isLoading {
-                        ProgressView()
-                            .tint(.white)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.top, 50)
-                    } else if cloudKitManager.transferLists.isEmpty {
-                        VStack(spacing: 16) {
-                            Image(systemName: "shippingbox")
-                                .font(.system(size: 64))
-                                .foregroundColor(Color(hex: "64748b").opacity(0.5))
-                            
-                            Text("No transfer lists yet")
-                                .font(.system(size: 20))
-                                .foregroundColor(Color(hex: "64748b"))
-                            
-                            Text("Create your first list to get started")
-                                .font(.system(size: 16))
-                                .foregroundColor(Color(hex: "64748b"))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 50)
-                    } else {
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                            ForEach(cloudKitManager.transferLists) { list in
-                                NavigationLink(destination: TransferListDetailView(transferList: list)) {
-                                    TransferListCard(list: list, onShareCreated: { url in
-                                        testShareURL = url
-                                    })
-                                }
-                            }
-                        }
-                    }
-                }
-                .padding()
-            }
-        }
-        .navigationBarHidden(true)
-        .sheet(isPresented: $showingNewListForm) {
-            NewListFormView(isPresented: $showingNewListForm)
-        }
-        .sheet(isPresented: $showingJoinFromLink) {
-            JoinFromLinkView(
-                isPresented: $showingJoinFromLink,
-                shareURL: testShareURL,
-                onMetadataFetched: { metadata in
-                    // Close test view and show join sheet on main view
-                    showingJoinFromLink = false
-                    pendingShareMetadata = metadata
-                    
-                    // Delay slightly to ensure test view is dismissed first
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        showingJoinSheet = true
-                    }
-                }
-            )
-        }
-        // Join sheet on main dashboard (not on test view!)
-        .sheet(isPresented: $showingJoinSheet) {
-            // Refresh dashboard when join sheet closes
-            Task {
-                await cloudKitManager.fetchTransferLists()
-            }
-        } content: {
-            if let metadata = pendingShareMetadata {
-                JoinListView(shareMetadata: metadata, isPresented: $showingJoinSheet)
-            }
-        }
-        .task {
-            await cloudKitManager.fetchTransferLists()
-        }
-        .refreshable {
-            await cloudKitManager.fetchTransferLists()
-        }
-    }
-}
-
-// Join From Link View - Fetches share metadata from a pasted URL
-struct JoinFromLinkView: View {
-    @Binding var isPresented: Bool
-    let shareURL: String
-    let onMetadataFetched: (CKShare.Metadata) -> Void
-    
-    @State private var manualURL = ""
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-    
-    var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
+                // Background gradient (matches your original dark dashboard)
                 LinearGradient(
                     colors: [Color(hex: "0f172a"), Color(hex: "1e293b")],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 .ignoresSafeArea()
-                
-                VStack(spacing: 24) {
-                    Text("Join Shared List")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Color(hex: "e2e8f0"))
-                    
-                    Text("Paste a shared link to join a transfer list")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "94a3b8"))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                    
-                    if !shareURL.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Last Created Share:")
-                                .font(.system(size: 12))
-                                .foregroundColor(Color(hex: "94a3b8"))
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                Text(shareURL)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundColor(Color(hex: "60a5fa"))
-                                    .padding(8)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.white.opacity(0.05))
-                                    )
-                            }
-                            
-                            Button(action: {
-                                UIPasteboard.general.string = shareURL
-                                manualURL = shareURL
-                            }) {
-                                HStack {
-                                    Image(systemName: "doc.on.clipboard")
-                                    Text("Copy & Use This URL")
-                                }
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(Color(hex: "60a5fa"))
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(Color(hex: "60a5fa").opacity(0.2))
-                                )
-                            }
-                        }
-                        .padding()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+
+                        // 1) Transfer Tracker title (first)
+                        titleCard
+
+                        // 2) Recent Activity (second)
+                        recentActivityCard
+
+                        // 3) Actions (Join first, Create second)
+                        actionButtons
+
+                        // 4) Lists
+                        listsSection
                     }
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Share URL:")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color(hex: "e2e8f0"))
-                        
-                        TextEditor(text: $manualURL)
-                            .frame(height: 100)
-                            .padding(8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.white.opacity(0.05))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                    )
-                            )
-                            .foregroundColor(Color(hex: "e2e8f0"))
-                            .scrollContentBackground(.hidden)
-                    }
-                    .padding(.horizontal)
-                    
-                    if let error = errorMessage {
-                        Text(error)
-                            .font(.system(size: 14))
-                            .foregroundColor(.red)
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.red.opacity(0.1))
-                            )
-                            .padding(.horizontal)
-                    }
-                    
-                    Button(action: {
-                        Task {
-                            await joinFromLink()
-                        }
-                    }) {
-                        if isLoading {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Text("Join Shared List")
-                                .font(.system(size: 16, weight: .semibold))
-                        }
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(hex: "10b981"))
-                    )
-                    .padding(.horizontal)
-                    .disabled(manualURL.isEmpty || isLoading)
-                    .opacity(manualURL.isEmpty ? 0.5 : 1.0)
-                    
-                    Spacer()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 28)
                 }
-                .padding(.top, 40)
             }
-            .navigationTitle("Test Join")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color(hex: "0f172a"), for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
-                        isPresented = false
-                    }
-                    .foregroundColor(Color(hex: "e2e8f0"))
-                }
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showingNewListForm) {
+                NewListFormView(isPresented: $showingNewListForm)
+                    .environmentObject(cloudKitManager)
+            }
+            .sheet(isPresented: $showingManualJoin) {
+                ManualJoinView(isPresented: $showingManualJoin)
+                    .environmentObject(cloudKitManager)
             }
         }
     }
-    
-    private func joinFromLink() async {
-        guard let url = URL(string: manualURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            errorMessage = "Invalid URL format"
-            return
+
+    // MARK: - Header Cards
+
+    private var titleCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Transfer Tracker")
+                .font(.system(size: 32, weight: .bold))
+                .foregroundColor(Color(hex: "a5b4fc"))
         }
-        
-        guard url.absoluteString.contains("icloud.com") else {
-            errorMessage = "Not a CloudKit share URL"
-            return
+        .padding(.vertical, 16)
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(hex: "0f172a"),
+                                    Color(hex: "1e293b")
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
         }
-        
-        isLoading = true
-        errorMessage = nil
-        
-        print("JOIN: Fetching share metadata for URL: \(url.absoluteString)")
-        
-        CKContainer.default().fetchShareMetadata(with: url) { fetchedMetadata, error in
-            DispatchQueue.main.async {
-                isLoading = false
-                
-                if let error = error {
-                    errorMessage = "Error: \(error.localizedDescription)"
-                    print("JOIN: Error fetching metadata: \(error)")
-                    return
+
+    private var recentActivityCard: some View {
+        NavigationLink(destination: ActivityFeedView().environmentObject(cloudKitManager)) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Recent Activity")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("See what changed across your lists")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.white.opacity(0.70))
                 }
-                
-                if let fetchedMetadata = fetchedMetadata {
-                    print("JOIN: Got metadata! Calling parent handler")
-                    // Pass metadata back to parent
-                    onMetadataFetched(fetchedMetadata)
-                } else {
-                    errorMessage = "No metadata returned"
-                    print("JOIN: No metadata returned")
+                Spacer()
+                Image(systemName: "arrow.clockwise")
+                    .foregroundColor(Color.white.opacity(0.80))
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .background(Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Actions
+
+    private var actionButtons: some View {
+        VStack(spacing: 10) {
+            // Join first
+            Button {
+                showingManualJoin = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "link")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Join Shared List")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.white.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+            }
+
+            // Create second (filled + readable)
+            Button {
+                showingNewListForm = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Create New Transfer List")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "3b82f6"), Color(hex: "8b5cf6")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+        }
+    }
+
+    // MARK: - Lists
+
+    private var listsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Your Lists")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.top, 4)
+
+            if cloudKitManager.transferLists.isEmpty {
+                Text("No transfer lists yet. Create one or join a shared list.")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.white.opacity(0.70))
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 14)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(cloudKitManager.transferLists) { list in
+                        NavigationLink(destination: TransferListDetailView(transferList: list)) {
+                            TransferListCard(list: list)
+                                .environmentObject(cloudKitManager)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }
     }
 }
 
-struct TransferListCard: View {
-    let list: TransferList
-    let onShareCreated: (String) -> Void
+// MARK: - Manual Join (paste link)
+/// Allows the user to paste a CloudKit share URL, fetch its metadata, and then
+/// reuse the existing `JoinListView` (so the join/accept logic stays in one place).
+private struct ManualJoinView: View {
     @EnvironmentObject var cloudKitManager: CloudKitManager
+    @Binding var isPresented: Bool
+
+    @State private var shareLink: String = ""
+    @State private var isLoading: Bool = false
+    @State private var errorMessage: String?
+    @State private var metadata: CKShare.Metadata?
+
+    var body: some View {
+        ZStack {
+            // Keep styling consistent with the dashboard.
+            LinearGradient(
+                colors: [Color(hex: "0f172a"), Color(hex: "1e293b")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            if let metadata {
+                // Hand off to the existing join UI/logic.
+                JoinListView(shareMetadata: metadata, isPresented: $isPresented)
+                    .environmentObject(cloudKitManager)
+            } else {
+                VStack(spacing: 16) {
+                    HStack {
+                        Text("Join Shared List")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Button("Close") { isPresented = false }
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Paste share link")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.8))
+
+                        TextField("icloud.com/share/...", text: $shareLink, axis: .vertical)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .keyboardType(.URL)
+                            .padding(12)
+                            .background(.thinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.red.opacity(0.9))
+                        }
+                    }
+                    .padding(14)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    Button {
+                        Task { await fetchMetadata() }
+                    } label: {
+                        HStack {
+                            if isLoading {
+                                ProgressView()
+                                    .tint(.white)
+                            }
+                            Text(isLoading ? "Loading…" : "Continue")
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color(hex: "5b6cff"))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .disabled(isLoading)
+
+                    Spacer()
+                }
+                .padding(16)
+            }
+        }
+    }
+
+    private func fetchMetadata() async {
+        let trimmed = shareLink.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed) else {
+            await MainActor.run { errorMessage = "Invalid link. Please paste the full iCloud share URL." }
+            return
+        }
+
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+
+        do {
+            let fetched = try await CKContainer.default().shareMetadata(for: url)
+            await MainActor.run {
+                metadata = fetched
+                isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                isLoading = false
+                errorMessage = "Could not read this share link. Try copying it again."
+            }
+            print("ManualJoinView: failed to fetch CKShare metadata: \(error)")
+        }
+    }
+}
+
+// MARK: - Transfer List Card (compact)
+
+struct TransferListCard: View {
+    @EnvironmentObject var cloudKitManager: CloudKitManager
+    let list: TransferList
+
+    @State private var shareURL: URL? = nil
     @State private var showingShareSheet = false
-    @State private var shareURL: URL?
-    @State private var isSharing = false
     @State private var showShareAlert = false
     @State private var shareAlertMessage = ""
-    
-    var isShared: Bool {
-        list.databaseScope == "shared"
-    }
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(list.title)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Color(hex: "e2e8f0"))
-                    .lineLimit(2)
-                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(list.title)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Text("Created by \(list.createdBy ?? "Me")")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.white.opacity(0.65))
+                }
+
                 Spacer()
-                
-                if isShared {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color(hex: "10b981"), Color(hex: "059669")],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 28, height: 28)
-                        
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white)
-                    }
-                }
-            }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 14))
-                    Text("Created by \(list.createdBy)")
-                        .font(.system(size: 14))
-                        .lineLimit(1)
-                }
-                .foregroundColor(Color(hex: "94a3b8"))
-                
-                if isShared {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color(hex: "10b981"))
-                        Text("Shared list")
-                            .font(.system(size: 13))
-                            .foregroundColor(Color(hex: "10b981"))
-                    }
-                }
-            }
-            
-            Spacer()
-            
-            Button(action: {
-                Task {
-                    await shareList()
-                }
-            }) {
-                HStack {
-                    if isSharing {
-                        ProgressView()
-                            .tint(Color(hex: "60a5fa"))
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "link")
-                            .font(.system(size: 14))
+
+                // Compact share button (smaller to show more lists)
+                Button {
+                    Task { await createShare() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 14, weight: .semibold))
                         Text("Share")
                             .font(.system(size: 14, weight: .semibold))
                     }
+                    .foregroundColor(.white)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
-                .foregroundColor(Color(hex: "60a5fa"))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(hex: "3b82f6").opacity(0.2))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(hex: "3b82f6").opacity(0.3), lineWidth: 1)
-                        )
-                )
             }
-            .buttonStyle(PlainButtonStyle())
-            .disabled(isSharing)
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
         )
         .sheet(isPresented: $showingShareSheet) {
             if let url = shareURL {
@@ -490,81 +355,27 @@ struct TransferListCard: View {
             }
         }
         .alert("Share Status", isPresented: $showShareAlert) {
-            Button("OK") { }
+            Button("OK", role: .cancel) { }
         } message: {
             Text(shareAlertMessage)
         }
     }
-    
-    private func shareList() async {
-        await MainActor.run {
-            isSharing = true
-        }
-        
+
+    @MainActor
+    private func createShare() async {
         do {
             let share = try await cloudKitManager.createShare(for: list)
-            
-            await MainActor.run {
-                isSharing = false
-                
-                if let url = share.url {
-                    shareURL = url
-                    onShareCreated(url.absoluteString)
-                    showingShareSheet = true
-                    print("Share URL: \(url.absoluteString)")
-                } else {
-                    shareAlertMessage = "Share created but no URL was generated. Try again."
-                    showShareAlert = true
-                }
-            }
-        } catch {
-            await MainActor.run {
-                isSharing = false
-                shareAlertMessage = "Error creating share: \(error.localizedDescription)"
+            if let url = share.url {
+                shareURL = url
+                showingShareSheet = true
+            } else {
+                shareAlertMessage = "Share created, but no URL was available."
                 showShareAlert = true
             }
-            print("❌ Share error: \(error)")
+        } catch {
+            shareAlertMessage = "Failed to create share: \(error.localizedDescription)"
+            showShareAlert = true
         }
     }
 }
-
-// Share Sheet for iOS
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-    
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-    
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
-// Color extension
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3:
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6:
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8:
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (1, 1, 1, 0)
-        }
-        self.init(.sRGB, red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255, opacity: Double(a) / 255)
-    }
-}
-
-#Preview {
-    NavigationStack {
-        DashboardView(selectedList: .constant(nil))
-            .environmentObject(CloudKitManager.shared)
-    }
-}
-
 

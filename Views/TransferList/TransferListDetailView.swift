@@ -537,7 +537,8 @@ struct ProductCard: View {
             }
             
             HStack {
-                Text("Logged by \(product.addedBy)")
+                let loggedBy = (product.addedBy == "Unknown") ? "Participant" : product.addedBy
+                Text("Logged by \(loggedBy)")
                     .font(.system(size: 12))
                     .foregroundColor(Color(hex: "64748b"))
                 
@@ -581,5 +582,6 @@ struct ProductCard: View {
         .environmentObject(CloudKitManager.shared)
     }
 }
+
 
 
