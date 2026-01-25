@@ -199,7 +199,7 @@ struct NewListFormView: View {
         do {
             let newList = try await cloudKitManager.createTransferList(title: title, transferEntities: transferEntities)
             
-            print("âœ… List created: \(newList.id)")
+            print("✅ List created: \(newList.id)")
             
             try? await Task.sleep(nanoseconds: 500_000_000)
             
@@ -219,3 +219,4 @@ struct NewListFormView: View {
     NewListFormView(isPresented: .constant(true))
         .environmentObject(CloudKitManager.shared)
 }
+

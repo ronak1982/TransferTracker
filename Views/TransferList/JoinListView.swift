@@ -193,3 +193,4 @@ struct JoinListView: View {
 #Preview {
     Text("Join List View Preview")
 }
+

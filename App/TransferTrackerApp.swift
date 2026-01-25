@@ -15,13 +15,8 @@ struct TransferTrackerApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                ContentViewWrapper()
-                    .environmentObject(cloudKitManager)
-                
-                // Debug overlay
-                DebugOverlay(logger: DebugLogger.shared)
-            }
+            ContentViewWrapper()
+                .environmentObject(cloudKitManager)
         }
     }
 }
@@ -57,40 +52,38 @@ struct ContentViewWrapper: View {
             }
         }
         .onOpenURL { url in
-            DebugLogger.shared.log("APP RECEIVED URL")
-            DebugLogger.shared.log("   \(url.absoluteString)")
+            Logger.urlHandling.info("App received URL: \(url.absoluteString, privacy: .public)")
             handleIncomingURL(url)
         }
         .onAppear {
-            DebugLogger.shared.log("ContentWrapper appeared")
+            Logger.urlHandling.debug("ContentViewWrapper appeared")
         }
     }
     
     private func handleIncomingURL(_ url: URL) {
-        DebugLogger.shared.log("HANDLE INCOMING URL CALLED")
+        Logger.urlHandling.debug("handleIncomingURL called")
         
         guard url.absoluteString.contains("icloud.com/share") else {
-            DebugLogger.shared.log("NOT A CLOUDKIT SHARE URL")
+            Logger.urlHandling.debug("Ignoring non-CloudKit share URL")
             return
         }
         
-        DebugLogger.shared.log("CLOUDKIT SHARE URL DETECTED")
+        Logger.urlHandling.info("CloudKit share URL detected")
         
         Task {
             do {
-                DebugLogger.shared.log("FETCHING SHARE METADATA...")
+                Logger.urlHandling.debug("Fetching CKShare metadata...")
                 let metadata = try await CKContainer.default().shareMetadata(for: url)
                 
                 let title = metadata.share[CKShare.SystemFieldKey.title] as? String ?? "Unknown"
-                DebugLogger.shared.log("GOT METADATA: \(title)")
+                Logger.urlHandling.info("Fetched share metadata. title=\(title, privacy: .public)")
                 
                 await MainActor.run {
-                    DebugLogger.shared.log("SETTING shareMetadataToPresent")
                     shareMetadataToPresent = metadata
-                    DebugLogger.shared.log("   shareMetadataToPresent is now: \(shareMetadataToPresent != nil ? "SET" : "nil")")
+                    Logger.urlHandling.debug("shareMetadataToPresent set")
                 }
             } catch {
-                DebugLogger.shared.log("ERROR: \(error.localizedDescription)")
+                Logger.urlHandling.error("Error fetching share metadata: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -106,3 +99,4 @@ struct ShareMetadataWrapper: Identifiable {
     ContentViewWrapper()
         .environmentObject(CloudKitManager.shared)
 }
+

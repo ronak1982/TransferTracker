@@ -18,7 +18,6 @@
 		4467134E2F0EFD7900E74A3F /* ProductFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4467133F2F0EFD7900E74A3F /* ProductFormView.swift */; };
 		446713502F0EFD7900E74A3F /* TransferListDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446713432F0EFD7900E74A3F /* TransferListDetailView.swift */; };
 		446713522F0EFDB000E74A3F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 446713512F0EFDB000E74A3F /* Assets.xcassets */; };
-		449D6B672F1ECBB1005FF4A1 /* DebugOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 449D6B662F1ECBAC005FF4A1 /* DebugOverlay.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,7 +34,6 @@
 		446713452F0EFD7900E74A3F /* UserManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserManagerView.swift; sourceTree = "<group>"; };
 		446713512F0EFDB000E74A3F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		446713562F0EFE0D00E74A3F /* TransferTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TransferTracker.entitlements; sourceTree = "<group>"; };
-		449D6B662F1ECBAC005FF4A1 /* DebugOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -103,7 +101,6 @@
 		446713362F0EFD3200E74A3F /* Managers */ = {
 			isa = PBXGroup;
 			children = (
-				449D6B662F1ECBAC005FF4A1 /* DebugOverlay.swift */,
 				445175C82F201BB5002C1F12 /* CloudKitManager.swift */,
 			);
 			path = Managers;
@@ -256,7 +253,6 @@
 				4467134E2F0EFD7900E74A3F /* ProductFormView.swift in Sources */,
 				446713502F0EFD7900E74A3F /* TransferListDetailView.swift in Sources */,
 				446713342F0EFD1B00E74A3F /* TransferTrackerApp.swift in Sources */,
-				449D6B672F1ECBB1005FF4A1 /* DebugOverlay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

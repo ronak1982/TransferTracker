@@ -435,3 +435,4 @@ struct UserManagerView: View {
     )
     .environmentObject(CloudKitManager.shared)
 }
+

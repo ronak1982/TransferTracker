@@ -379,7 +379,7 @@ struct ProductFormView: View {
                                     .foregroundColor(Color(hex: "e2e8f0"))
                                 
                                 HStack {
-                                    Text("\(fromUser) â†’ \(toUser)")
+                                    Text("\(fromUser) → \(toUser)")
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(Color(hex: "60a5fa"))
                                 }
@@ -589,3 +589,4 @@ struct ProductFormView: View {
     )
     .environmentObject(CloudKitManager.shared)
 }
+
