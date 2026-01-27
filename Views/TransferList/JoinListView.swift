@@ -37,29 +37,15 @@ struct JoinListView: View {
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(Color(hex: "e2e8f0"))
                         
-                        Text("You can now view and edit this list")
+                        Text("Syncing products...")
                             .font(.system(size: 16))
                             .foregroundColor(Color(hex: "94a3b8"))
+                        
+                        ProgressView()
+                            .tint(Color(hex: "60a5fa"))
+                            .padding(.top, 8)
                     }
                     
-                    Button(action: {
-                        isPresented = false
-                    }) {
-                        Text("Done")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(
-                                LinearGradient(
-                                    colors: [Color(hex: "3b82f6"), Color(hex: "8b5cf6")],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(12)
-                            .padding(.horizontal, 32)
-                    }
                 } else {
                     // Join Request State
                     Image(systemName: "person.badge.plus")
@@ -150,8 +136,6 @@ struct JoinListView: View {
             print("   Share URL: \(acceptedShare.url?.absoluteString ?? "none")")
             
             let sharedDB = container.sharedCloudDatabase
-            
-            // ✅ FIXED: rootRecordID is not optional, so no need for guard let
             let rootRecordID = shareMetadata.rootRecordID
             
             print("   Fetching root record: \(rootRecordID.recordName)")
@@ -174,8 +158,13 @@ struct JoinListView: View {
                 isJoining = false
             }
             
-            // Auto-close after 1.5 seconds
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            // ✅ NEW: Trigger full refresh to get products
+            print("🔄 Syncing products from shared list...")
+            _ = try? await cloudKitManager.fetchProducts(for: sharedList)
+            print("✅ Products synced!")
+            
+            // Close after sync completes
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
             await MainActor.run {
                 isPresented = false
             }
@@ -193,4 +182,3 @@ struct JoinListView: View {
 #Preview {
     Text("Join List View Preview")
 }
-

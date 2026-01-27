@@ -16,6 +16,11 @@ struct TransferListDetailView: View {
     @State private var showingDatePicker = false
     @State private var refreshTrigger = false
     
+    // ✅ NEW: Track sync state
+    @State private var isSyncing = false
+    @State private var lastSyncTime: Date?
+    @State private var hasLoadedOnce = false
+    
     var filteredProducts: [Product] {
         let calendar = Calendar.current
         
@@ -55,6 +60,53 @@ struct TransferListDetailView: View {
             
             ScrollView {
                 VStack(spacing: 12) {
+                    // ✅ NEW: Sync indicator at top
+                    if isSyncing {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .tint(Color(hex: "60a5fa"))
+                                .scaleEffect(0.8)
+                            Text("Syncing...")
+                                .font(.system(size: 13))
+                                .foregroundColor(Color(hex: "94a3b8"))
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(hex: "3b82f6").opacity(0.1))
+                        )
+                        .padding(.horizontal)
+                    } else if let lastSync = lastSyncTime {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(hex: "10b981"))
+                            Text("Last updated: \(timeAgoString(from: lastSync))")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(hex: "94a3b8"))
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                Task {
+                                    await refreshProducts()
+                                }
+                            }) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color(hex: "60a5fa"))
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.white.opacity(0.05))
+                        )
+                        .padding(.horizontal)
+                    }
+                    
                     // User Breakdown Cards
                     VStack(spacing: 12) {
                         ForEach(userBreakdown, id: \.user) { item in
@@ -255,13 +307,22 @@ struct TransferListDetailView: View {
         .toolbarBackground(Color(hex: "0f172a"), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        // ✅ Initial load
         .task {
             await loadProducts()
         }
-        .refreshable {
-            await loadProducts()
+        // ✅ NEW: Auto-refresh when view appears (after first load)
+        .onAppear {
+            if hasLoadedOnce {
+                Task {
+                    await refreshProducts()
+                }
+            }
         }
-        // ✅ FIXED: Updated onChange to use new iOS 17+ syntax (no deprecation warning)
+        // ✅ Manual pull-to-refresh
+        .refreshable {
+            await refreshProducts()
+        }
         .onChange(of: refreshTrigger) {
             Task {
                 await loadProducts()
@@ -335,6 +396,27 @@ struct TransferListDetailView: View {
         }
     }
     
+    // ✅ NEW: Better time formatting
+    private func timeAgoString(from date: Date) -> String {
+        let seconds = Int(Date().timeIntervalSince(date))
+        
+        if seconds < 60 {
+            return "just now"
+        } else if seconds < 3600 {
+            let minutes = seconds / 60
+            return "\(minutes) min ago"
+        } else if seconds < 86400 {
+            let hours = seconds / 3600
+            return "\(hours)h ago"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .short
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        }
+    }
+    
+    // ✅ Initial load (show loading spinner)
     private func loadProducts() async {
         isLoading = true
         do {
@@ -342,10 +424,30 @@ struct TransferListDetailView: View {
             await MainActor.run {
                 products = fetchedProducts
                 isLoading = false
+                hasLoadedOnce = true
+                lastSyncTime = Date()
             }
         } catch {
             await MainActor.run {
                 isLoading = false
+                hasLoadedOnce = true
+            }
+        }
+    }
+    
+    // ✅ NEW: Background refresh (show sync indicator)
+    private func refreshProducts() async {
+        isSyncing = true
+        do {
+            let fetchedProducts = try await cloudKitManager.fetchProducts(for: transferList)
+            await MainActor.run {
+                products = fetchedProducts
+                isSyncing = false
+                lastSyncTime = Date()
+            }
+        } catch {
+            await MainActor.run {
+                isSyncing = false
             }
         }
     }
@@ -569,7 +671,6 @@ struct ProductCard: View {
     }
 }
 
-// ✅ FIXED PREVIEW - Uses new model structure (no authorizedUsers)
 #Preview {
     NavigationStack {
         TransferListDetailView(
@@ -581,5 +682,3 @@ struct ProductCard: View {
         .environmentObject(CloudKitManager.shared)
     }
 }
-
-

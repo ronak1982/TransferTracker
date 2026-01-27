@@ -220,3 +220,4 @@ struct NewListFormView: View {
         .environmentObject(CloudKitManager.shared)
 }
 
+

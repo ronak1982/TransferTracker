@@ -2,7 +2,7 @@ import Foundation
 import CloudKit
 
 // MARK: - Transfer List Model
-struct TransferList: Identifiable, Codable {
+struct TransferList: Identifiable, Codable, Hashable {
     var id: String
     var title: String
     var createdAt: Date
@@ -191,5 +191,3 @@ struct ChangeEvent: Identifiable, Codable {
         return ev
     }
 }
-
-
